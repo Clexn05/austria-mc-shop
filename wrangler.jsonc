@@ -1,24 +1,36 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "austria-mc-shop",
+  "account_id": "d8f64b8e1628f1280261f9bdb3d177d4",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-23",
+  "keep_vars": true
+
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   },
+
+  "routes": [
+    {
+      "pattern": "buy.austria-mc.net/*",
+      "zone_name": "austria-mc.net"
+    }
+  ],
+
   "vars": {
     "STORE_BASE_URL": "https://buy.austria-mc.net",
     "PAYPAL_ENV": "sandbox",
     "KLARNA_ENV": "playground",
     "PAYSAFECARD_ENV": "test"
   },
+
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "austria-mc-shop",
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+      "database_id": "65135b75-3b98-4f11-9175-3c27dd4ef543"
     }
   ]
 }
