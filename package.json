@@ -1,0 +1,18 @@
+{
+  "name": "austria-mc-buy",
+  "private": true,
+  "version": "1.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy --config wrangler.jsonc",
+    "typecheck": "tsc --noEmit",
+    "db:remote": "wrangler d1 execute austria-mc-shop --remote --file=./schema.sql",
+    "db:local": "wrangler d1 execute austria-mc-shop --local --file=./schema.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260920.0",
+    "typescript": "^5.9.2",
+    "wrangler": "^4.38.0"
+  }
+}

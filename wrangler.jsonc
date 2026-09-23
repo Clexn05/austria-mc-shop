@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "austria-mc-buy",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-22",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "vars": {
+    "STORE_BASE_URL": "https://buy.austria-mc.net"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "austria-mc-shop",
+      "database_id": "65135b75-3b98-4f11-9175-3c27dd4ef543"
+    }
+  ]
+}
