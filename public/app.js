@@ -112,6 +112,33 @@ for (const el of document.querySelectorAll("[data-copy]")) {
   });
 }
 
+
+async function loadPaymentMethods() {
+  const res = await fetch("/api/payment-methods");
+  if (!res.ok) return;
+  const data = await res.json();
+  const methods = data.methods || {};
+  const radios = [...document.querySelectorAll('input[name="paymentMethod"]')];
+  let firstEnabled = null;
+  for (const radio of radios) {
+    const info = methods[radio.value];
+    const enabled = Boolean(info?.enabled);
+    radio.disabled = !enabled;
+    const label = radio.closest("label");
+    if (label) {
+      label.classList.toggle("disabled", !enabled);
+      const span = label.querySelector("span");
+      if (span) {
+        const base = radio.value === "paypal" ? "PayPal" : radio.value === "klarna" ? "Klarna." : "paysafecard";
+        span.textContent = enabled ? base : `${base} (noch nicht eingerichtet)`;
+      }
+    }
+    if (enabled && !firstEnabled) firstEnabled = radio;
+  }
+  const selected = radios.find(r => r.checked && !r.disabled);
+  if (!selected && firstEnabled) firstEnabled.checked = true;
+}
+
 let currentOrder = null;
 async function showOrderStatus(orderId) {
   currentOrder = orderId;
@@ -151,6 +178,8 @@ const qs = new URLSearchParams(location.search);
 if (qs.get("order")) {
   showOrderStatus(qs.get("order"));
 }
+
+loadPaymentMethods().catch(() => {});
 
 loadProducts().catch(err => {
   grid.innerHTML = `<div class="loading-card">${escapeHtml(err.message || String(err))}</div>`;

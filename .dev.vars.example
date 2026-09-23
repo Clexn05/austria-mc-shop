@@ -1,0 +1,16 @@
+# NIEMALS echte Secrets committen.
+FULFILLMENT_TOKEN=replace-me
+
+# Admin: nur für den ersten Login / Recovery.
+ADMIN_BOOTSTRAP_USERNAME=admin
+ADMIN_BOOTSTRAP_PASSWORD=replace-with-a-strong-password
+# Langer zufälliger Wert, z. B. 64+ Zeichen.
+ADMIN_SECRET=replace-with-a-long-random-secret
+
+# Direkte Zahlungsanbieter – zunächst Test/Sandbox verwenden.
+PAYPAL_CLIENT_ID=
+PAYPAL_CLIENT_SECRET=
+PAYPAL_WEBHOOK_ID=
+KLARNA_USERNAME=
+KLARNA_PASSWORD=
+PAYSAFECARD_API_KEY=

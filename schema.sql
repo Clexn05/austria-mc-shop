@@ -38,6 +38,10 @@ CREATE TABLE IF NOT EXISTS shop_orders (
   fulfillment_status TEXT NOT NULL DEFAULT 'WAITING_PAYMENT'
     CHECK(fulfillment_status IN ('WAITING_PAYMENT','PENDING','PROCESSING','FULFILLED','FAILED')),
   mollie_payment_id TEXT UNIQUE,
+  provider_name TEXT,
+  provider_payment_id TEXT,
+  provider_session_id TEXT,
+  provider_order_id TEXT,
   customer_email TEXT NOT NULL,
   given_name TEXT NOT NULL,
   family_name TEXT NOT NULL,
@@ -62,7 +66,7 @@ VALUES
 ('spuela-plus', 'Spüla+', 'spüla+', 500, '&7[&aSpüla&4+&7]  &f', '#52d273', 'Mehr Komfort, Fly und zusätzliche Plot-Rechte.', 10, 1),
 ('vip', 'VIP', 'vip', 1000, '&7[&eVIP&7]  &e', '#f4c542', 'Komfort-Befehle, Nick-Funktionen und mehr Plot-Rechte.', 20, 1),
 ('vip-plus', 'VIP+', 'vip+', 1200, '&7[&eVIP&4+&7]  &e', '#ff9d24', 'Alle VIP-Vorteile plus zusätzliche Komfort- und Nick-Befehle.', 30, 1),
-('builder', 'Builder', 'builder', 2500, '&7[&fBuilder&7]  &7', '#e8edf2', 'Builder-Rechte mit WorldEdit-Funktionen und 8 Plot-Slots.', 40, 1)
+('builder', 'Builder', 'builder', 2500, '&7[&fBuilder&7]  &7', '#6B7280', 'Builder-Rechte mit WorldEdit-Funktionen und 8 Plot-Slots.', 40, 1)
 ON CONFLICT(id) DO UPDATE SET
   display_name=excluded.display_name,
   luckperms_group=excluded.luckperms_group,
@@ -128,3 +132,37 @@ VALUES
 ('builder','plots.set.biome','/plot set biome','Plot-Biom ändern',210),
 ('builder','plots.plot.8',NULL,'Bis zu 8 Plots',220),
 ('builder','MyPet.shop.access.spezielle',NULL,'Zugriff auf spezielle MyPet-Shop-Inhalte',230);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_shop_provider_payment ON shop_orders(provider_name, provider_payment_id) WHERE provider_payment_id IS NOT NULL;
+
+-- =========================================================
+-- Admin-Verwaltung (v3)
+-- =========================================================
+CREATE TABLE IF NOT EXISTS admin_users (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  username TEXT NOT NULL UNIQUE,
+  password_salt TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  session_version INTEGER NOT NULL DEFAULT 1,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS admin_audit (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  actor TEXT NOT NULL,
+  action TEXT NOT NULL,
+  entity_type TEXT,
+  entity_id TEXT,
+  details TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit(created_at);
+
+
+CREATE TABLE IF NOT EXISTS admin_login_guard (
+  key TEXT PRIMARY KEY,
+  failures INTEGER NOT NULL DEFAULT 0,
+  blocked_until INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

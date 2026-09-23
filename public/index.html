@@ -3,94 +3,135 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="theme-color" content="#b80f18" />
+  <meta name="theme-color" content="#b91522" />
+  <meta name="description" content="Offizieller Austria-MC Rang-Shop – österreichischer Minecraft Server." />
   <title>Austria-MC Shop</title>
-  <meta name="description" content="Offizieller Austria-MC Rang-Shop." />
+  <link rel="icon" href="/assets/austria-logo.png" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <div class="topline"></div>
+  <div class="flagline"></div>
 
-  <header class="nav shell">
-    <a class="brand" href="/">
-      <img src="/assets/austria-logo.png" alt="Austria-MC" />
-      <span>AUSTRIA<span>-MC</span></span>
-    </a>
-    <nav>
-      <a class="active" href="#ranks">Ränge</a>
-      <a href="#how">Ablauf</a>
-      <a href="#payments">Bezahlen</a>
-    </nav>
-    <a class="server-pill" href="minecraft://?addExternalServer=Austria-MC|austria-mc.net">austria-mc.net</a>
+  <header class="site-header">
+    <div class="nav-shell shell">
+      <a class="brand" href="/" aria-label="Austria-MC Shop Startseite">
+        <img src="/assets/austria-logo.png" alt="Austria-MC Logo" />
+        <span>AUSTRIA<span>-MC</span></span>
+      </a>
+
+      <nav class="main-nav" aria-label="Hauptnavigation">
+        <a class="active" href="#home">Home</a>
+        <a href="#ranks">Shop</a>
+        <a href="#ranks">Ränge</a>
+        <a href="#about">Über uns</a>
+        <a href="#payments">Support</a>
+      </nav>
+
+      <button class="server-copy" type="button" data-copy="austria-mc.net">
+        <span class="cube">◆</span> austria-mc.net
+      </button>
+    </div>
   </header>
 
   <main>
-    <section class="hero">
-      <div class="mountains"></div>
-      <div class="hero-overlay"></div>
-      <div class="shell hero-inner">
-        <div class="hero-logo-wrap">
-          <img class="hero-logo" src="/assets/austria-logo.png" alt="" />
+    <section id="home" class="hero">
+      <div class="hero-sky"></div>
+      <div class="hero-mountains hero-mountains-back"></div>
+      <div class="hero-mountains hero-mountains-front"></div>
+      <div class="hero-forest"></div>
+      <div class="hero-vignette"></div>
+
+      <div class="shell hero-content">
+        <div class="hero-emblem-wrap">
+          <div class="hero-emblem-glow"></div>
+          <img class="hero-emblem" src="/assets/austria-logo.png" alt="Österreichisches Austria-MC Servermotiv" />
         </div>
+
         <div class="hero-copy">
-          <div class="eyebrow">MEHR ALS NUR EIN SERVER</div>
-          <h1>Dein Rang.<br><span>Dein Austria-MC.</span></h1>
-          <p>Unterstütze das Netzwerk und schalte exklusive Komfort-, Plot- und Builder-Funktionen frei.</p>
-          <div class="hero-actions">
-            <a href="#ranks" class="btn primary">Ränge ansehen</a>
-            <button class="btn ghost" data-copy="austria-mc.net">Server-IP kopieren</button>
+          <div class="hero-eyebrow"><span></span> MEHR ALS NUR EIN SERVER <span></span></div>
+          <div class="hero-title" aria-label="Austria-MC">AUSTRIA<span>-MC</span></div>
+          <h1>Dein österreichischer<br />Minecraft Server</h1>
+          <p class="hero-tags">Gemeinschaft <b>•</b> Abenteuer <b>•</b> Kreativität <b>•</b> Zuhause</p>
+          <div class="hero-buttons">
+            <a class="btn btn-red btn-large" href="#ranks">Jetzt im Shop stöbern <span>›</span></a>
+            <button class="btn btn-dark btn-large" type="button" data-copy="austria-mc.net">▶ &nbsp; austria-mc.net</button>
           </div>
-          <div class="trust-row">
-            <span>🇦🇹 Österreichischer Minecraft-Server</span>
-            <span>🔒 Sichere Zahlungsabwicklung</span>
-            <span>⚡ Automatische Freischaltung vorbereitet</span>
-          </div>
+        </div>
+      </div>
+
+      <div class="hero-facts">
+        <div class="shell facts-grid">
+          <article><span class="fact-icon">♟</span><div><b>Aktive Community</b><small>Freundlich & hilfsbereit</small></div></article>
+          <article><span class="fact-icon">✦</span><div><b>Stabil & zuverlässig</b><small>Starke Hardware</small></div></article>
+          <article><span class="fact-icon">▲</span><div><b>Einzigartige Welt</b><small>Österreichisches Setting</small></div></article>
+          <article><span class="fact-icon">♥</span><div><b>Mit Herz betrieben</b><small>Von Gamern für Gamer</small></div></article>
         </div>
       </div>
     </section>
 
-    <section id="ranks" class="section shell">
-      <div class="section-head">
-        <div>
-          <div class="eyebrow red">RANGSHOP</div>
-          <h2>Wähle deinen Rang</h2>
-          <p>Die Preise und Rechte werden serverseitig geladen – der Browser kann keine Gruppe manipulieren.</p>
-        </div>
-        <div class="austria-stripe"><i></i><i></i><i></i></div>
-      </div>
-
-      <div id="rank-grid" class="rank-grid">
-        <div class="loading-card">Ränge werden geladen …</div>
-      </div>
-    </section>
-
-    <section id="how" class="section alt">
+    <section id="ranks" class="ranks-section">
       <div class="shell">
-        <div class="section-head centered">
+        <div class="section-title centered">
+          <div class="section-kicker">RANGSHOP</div>
+          <h2>Unsere <span>Ränge</span></h2>
+          <p>Unterstütze den Server und sichere dir exklusive Vorteile.</p>
+        </div>
+
+        <div id="rank-grid" class="rank-grid">
+          <div class="loading-card">Ränge werden geladen …</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="about" class="info-section">
+      <div class="shell info-grid">
+        <article class="info-card payment-card">
+          <div class="info-icon">✦</div>
           <div>
-            <div class="eyebrow red">SO FUNKTIONIERT'S</div>
-            <h2>In drei Schritten zum Rang</h2>
+            <h3>Sicher und einfach bezahlen</h3>
+            <p>Direkte Zahlungsabwicklung – deine Zahlungsdaten werden nicht auf dem Minecraft-Server gespeichert.</p>
+            <div class="mini-payment-logos">
+              <span class="paypal">PayPal</span>
+              <span class="paysafe">paysafecard</span>
+              <span class="klarna">Klarna.</span>
+            </div>
           </div>
+        </article>
+
+        <article class="info-card">
+          <div class="info-icon">♥</div>
+          <div>
+            <h3>Warum Austria-MC?</h3>
+            <ul class="check-list">
+              <li>Österreichisches Setting mit Liebe zum Detail</li>
+              <li>Aktive & freundliche Community</li>
+              <li>Regelmäßige Updates & Events</li>
+              <li>Fair, transparent und langfristig</li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="info-card">
+          <div class="info-icon">♟</div>
+          <div>
+            <h3>Werde Teil der Community</h3>
+            <p>Mehr als nur ein Server – gemeinsam bauen, spielen und neue Abenteuer erleben.</p>
+            <button class="btn btn-red" type="button" data-copy="austria-mc.net">Server-IP kopieren</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="payments" class="how-section">
+      <div class="shell">
+        <div class="section-title centered light">
+          <div class="section-kicker">SO FUNKTIONIERT'S</div>
+          <h2>In drei Schritten zum Rang</h2>
         </div>
         <div class="steps">
-          <article><b>1</b><h3>Rang wählen</h3><p>Wähle Builder, VIP+, VIP oder Spüla+.</p></article>
-          <article><b>2</b><h3>Name & Zahlung</h3><p>Gib deinen Minecraft-Namen ein und bezahle sicher.</p></article>
-          <article><b>3</b><h3>Freischaltung</h3><p>Nach bestätigter Zahlung wird der Auftrag für LuckPerms bereitgestellt.</p></article>
-        </div>
-      </div>
-    </section>
-
-    <section id="payments" class="section shell">
-      <div class="payments-panel">
-        <div>
-          <div class="eyebrow red">SICHER BEZAHLEN</div>
-          <h2>PayPal, paysafecard & Klarna</h2>
-          <p>Die Zahlungsdaten werden nicht auf unserem Minecraft-Server gespeichert. Die eigentliche Zahlung läuft beim Zahlungsanbieter.</p>
-        </div>
-        <div class="payment-logos">
-          <div class="pay-logo paypal">PayPal</div>
-          <div class="pay-logo paysafe">paysafecard</div>
-          <div class="pay-logo klarna">Klarna.</div>
+          <article><b>1</b><h3>Rang wählen</h3><p>Wähle Spüla+, VIP, VIP+ oder Builder.</p></article>
+          <article><b>2</b><h3>Name & Zahlung</h3><p>Gib deinen Minecraft-Namen korrekt ein und schließe die Zahlung ab.</p></article>
+          <article><b>3</b><h3>Automatische Freischaltung</h3><p>Nach bestätigter Zahlung übernimmt AustriaShopBridge deinen LuckPerms-Rang.</p></article>
         </div>
       </div>
     </section>
@@ -98,24 +139,25 @@
 
   <footer>
     <div class="shell footer-row">
-      <div class="footer-brand">
+      <a class="footer-brand" href="/">
         <img src="/assets/austria-logo.png" alt="" />
-        <div><strong>AUSTRIA-MC</strong><small>Mehr als ein Server. Eine Community.</small></div>
-      </div>
-      <div class="legal">
+        <div><strong>AUSTRIA<span>-MC</span></strong><small>Mehr als ein Server. Eine Community.</small></div>
+      </a>
+      <div class="footer-links">
         <a href="/impressum">Impressum</a>
         <a href="/datenschutz">Datenschutz</a>
         <a href="/agb">AGB</a>
+        <a href="/admin/">Admin</a>
       </div>
-      <span>Servus im Spiel! ❤️</span>
+      <div class="footer-servus">Servus im Spiel! ♥</div>
     </div>
   </footer>
 
-  <dialog id="checkout-dialog">
+  <dialog id="checkout-dialog" class="shop-dialog">
     <form id="checkout-form" method="dialog">
-      <button type="button" class="close" id="close-checkout">×</button>
+      <button type="button" class="dialog-close" id="close-checkout" aria-label="Schließen">×</button>
       <div class="dialog-head">
-        <div class="eyebrow red">CHECKOUT</div>
+        <span class="section-kicker">CHECKOUT</span>
         <h2 id="checkout-title">Rang kaufen</h2>
         <p id="checkout-price"></p>
       </div>
@@ -149,29 +191,27 @@
         <span>Ich bestätige Minecraft-Name und Produkt und akzeptiere die Shop-Bedingungen.</span>
       </label>
 
-      <button class="btn primary submit" type="submit">Sicher zur Zahlung</button>
+      <button class="btn btn-red submit" type="submit">Sicher zur Zahlung</button>
       <p class="form-status" id="form-status"></p>
     </form>
   </dialog>
 
-  <dialog id="status-dialog">
+  <dialog id="status-dialog" class="shop-dialog status-dialog">
     <div class="status-box">
-      <button type="button" class="close" id="close-status">×</button>
-      <div class="eyebrow red">BESTELLSTATUS</div>
+      <button type="button" class="dialog-close" id="close-status" aria-label="Schließen">×</button>
+      <span class="section-kicker">BESTELLSTATUS</span>
       <h2 id="status-title">Bestellung wird geprüft …</h2>
       <p id="status-copy"></p>
-      <button class="btn primary" id="refresh-status">Status aktualisieren</button>
+      <button class="btn btn-red" id="refresh-status">Status aktualisieren</button>
     </div>
   </dialog>
 
   <template id="rank-template">
     <article class="rank-card">
-      <div class="rank-topline"></div>
+      <div class="rank-accent"></div>
+      <div class="rank-badge">AUSTRIA-MC RANG</div>
       <div class="rank-head">
-        <div>
-          <span class="rank-kicker">AUSTRIA-MC RANG</span>
-          <h3 class="rank-name"></h3>
-        </div>
+        <h3 class="rank-name"></h3>
         <div class="rank-price"></div>
       </div>
       <p class="rank-desc"></p>
@@ -181,7 +221,7 @@
         <summary>Alle LuckPerms-Rechte anzeigen</summary>
         <div class="permission-list"></div>
       </details>
-      <button class="btn primary buy-btn">Jetzt kaufen</button>
+      <button class="btn btn-red buy-btn">Jetzt kaufen</button>
     </article>
   </template>
 

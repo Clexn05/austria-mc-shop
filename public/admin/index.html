@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#161a20" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Austria-MC Shop Admin</title>
+  <link rel="icon" href="/assets/austria-logo.png" />
+  <link rel="stylesheet" href="/admin/admin.css" />
+</head>
+<body>
+  <div class="flagline"></div>
+
+  <section id="login-view" class="login-screen">
+    <div class="login-card">
+      <img src="/assets/austria-logo.png" alt="Austria-MC" />
+      <div class="kicker">GESCHÜTZTER BEREICH</div>
+      <h1>Shop Admin</h1>
+      <p>Bestellungen, Ränge, Testkäufe und D1-Datenbank verwalten.</p>
+      <form id="login-form">
+        <label>Benutzername<input id="login-username" autocomplete="username" required /></label>
+        <label>Passwort<input id="login-password" type="password" autocomplete="current-password" required /></label>
+        <button class="btn primary" type="submit">Anmelden</button>
+        <div id="login-error" class="error"></div>
+      </form>
+    </div>
+  </section>
+
+  <div id="admin-view" class="admin-app" hidden>
+    <aside class="sidebar">
+      <a class="admin-brand" href="/admin/">
+        <img src="/assets/austria-logo.png" alt="" />
+        <div><b>AUSTRIA<span>-MC</span></b><small>SHOP ADMIN</small></div>
+      </a>
+      <nav id="admin-nav">
+        <button class="active" data-page="overview">▦ Übersicht</button>
+        <button data-page="orders">▤ Bestellungen</button>
+        <button data-page="products">♛ Ränge & Rechte</button>
+        <button data-page="test">⚡ Testkauf</button>
+        <button data-page="database">▧ Datenbank</button>
+        <button data-page="account">⚙ Zugang</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <a href="/" target="_blank">↗ Shop öffnen</a>
+        <button id="logout-btn">Abmelden</button>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <header class="admin-topbar">
+        <div>
+          <div class="kicker">AUSTRIA-MC VERWALTUNG</div>
+          <h1 id="page-title">Übersicht</h1>
+        </div>
+        <div class="admin-user">Angemeldet als <b id="admin-username">admin</b></div>
+      </header>
+
+      <section class="admin-page active" data-page-view="overview">
+        <div id="stat-grid" class="stat-grid"></div>
+        <div class="panel">
+          <div class="panel-head"><div><h2>Letzte Bestellungen</h2><p>Die neuesten Shop- und Testkäufe.</p></div><button class="btn secondary" data-goto="orders">Alle anzeigen</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Zeit</th><th>Spieler</th><th>Rang</th><th>Betrag</th><th>Zahlung</th><th>Freischaltung</th></tr></thead><tbody id="recent-orders"></tbody></table></div>
+        </div>
+      </section>
+
+      <section class="admin-page" data-page-view="orders">
+        <div class="panel">
+          <div class="panel-head stack-mobile">
+            <div><h2>Bestellungen</h2><p>Wer hat was gekauft und wurde der Rang bereits vergeben?</p></div>
+            <div class="filters">
+              <input id="order-search" placeholder="Spieler / Order-ID suchen" />
+              <select id="order-payment-filter"><option value="">Alle Zahlungen</option><option>PAID</option><option>OPEN</option><option>PENDING</option><option>FAILED</option><option>CANCELED</option><option>EXPIRED</option><option>CREATED</option></select>
+              <select id="order-fulfillment-filter"><option value="">Alle Freischaltungen</option><option>PENDING</option><option>FULFILLED</option><option>FAILED</option><option>WAITING_PAYMENT</option><option>PROCESSING</option></select>
+              <button id="refresh-orders" class="btn secondary">Aktualisieren</button>
+            </div>
+          </div>
+          <div class="table-wrap"><table class="orders-table"><thead><tr><th>Datum</th><th>Spieler</th><th>Produkt</th><th>Betrag</th><th>Anbieter</th><th>Zahlung</th><th>Rang</th><th>Aktionen</th></tr></thead><tbody id="orders-body"></tbody></table></div>
+          <div id="orders-empty" class="empty" hidden>Keine Bestellungen gefunden.</div>
+        </div>
+      </section>
+
+      <section class="admin-page" data-page-view="products">
+        <div class="panel">
+          <div class="panel-head"><div><h2>Ränge & Rechte</h2><p>Preise, Prefixe, Farben, LuckPerms-Gruppen und angezeigte Rechte direkt aus D1 bearbeiten.</p></div><button id="refresh-products" class="btn secondary">Neu laden</button></div>
+          <div id="products-admin" class="product-admin-grid"></div>
+        </div>
+      </section>
+
+      <section class="admin-page" data-page-view="test">
+        <div class="split-grid">
+          <div class="panel">
+            <div class="panel-head"><div><h2>Kostenlosen Testkauf starten</h2><p>Erzeugt absichtlich eine Bestellung mit <b>PAID + PENDING</b>. Es wird kein Geld abgebucht.</p></div></div>
+            <form id="test-purchase-form" class="admin-form">
+              <label>Minecraft-Name<input name="minecraftName" required minlength="3" maxlength="16" pattern="[A-Za-z0-9_]{3,16}" placeholder="o_Twice_o" /></label>
+              <label>Rang<select name="productId" id="test-product" required></select></label>
+              <button class="btn primary" type="submit">Testkauf erstellen</button>
+              <div id="test-result" class="form-message"></div>
+            </form>
+          </div>
+          <div class="panel info-panel">
+            <h2>Was passiert?</h2>
+            <ol>
+              <li>D1 erhält eine Testbestellung.</li>
+              <li><code>payment_status = PAID</code></li>
+              <li><code>fulfillment_status = PENDING</code></li>
+              <li>AustriaShopBridge holt sie ab.</li>
+              <li>LuckPerms setzt die gekaufte Gruppe.</li>
+              <li>Der Auftrag wird auf <code>FULFILLED</code> gesetzt.</li>
+            </ol>
+            <p>Falls der Rang ingame nicht sofort sichtbar wird, einmal neu joinen.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="admin-page" data-page-view="database">
+        <div class="panel">
+          <div class="panel-head stack-mobile">
+            <div><h2>D1 Datenbank-Browser</h2><p>Direkter Lesezugriff auf alle Shop-Tabellen. Änderungen laufen über die sicheren Verwaltungsfunktionen.</p></div>
+            <div class="filters"><select id="db-table"></select><button id="load-table" class="btn secondary">Tabelle laden</button></div>
+          </div>
+          <div id="db-meta" class="db-meta"></div>
+          <div class="table-wrap database-wrap"><table><thead id="db-head"></thead><tbody id="db-body"></tbody></table></div>
+        </div>
+      </section>
+
+      <section class="admin-page" data-page-view="account">
+        <div class="split-grid">
+          <div class="panel">
+            <div class="panel-head"><div><h2>Admin-Zugang ändern</h2><p>Benutzername und Passwort können hier angepasst werden.</p></div></div>
+            <form id="account-form" class="admin-form">
+              <label>Aktuelles Passwort<input name="currentPassword" type="password" required autocomplete="current-password" /></label>
+              <label>Neuer Benutzername<input name="newUsername" minlength="3" maxlength="64" autocomplete="username" /></label>
+              <label>Neues Passwort<input name="newPassword" type="password" minlength="10" autocomplete="new-password" placeholder="Mindestens 10 Zeichen" /></label>
+              <button class="btn primary" type="submit">Zugang speichern</button>
+              <div id="account-result" class="form-message"></div>
+            </form>
+          </div>
+          <div class="panel info-panel">
+            <h2>Sicherheit</h2>
+            <p>Die Admin-Seite verwendet eine signierte, HttpOnly-Session. Das Passwort wird nicht im Klartext in D1 gespeichert.</p>
+            <p>Die drei Bootstrap-Secrets in Cloudflare dienen nur für die erste Einrichtung bzw. eine Wiederherstellung.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="permission-dialog" class="admin-dialog">
+    <form id="permission-form">
+      <button type="button" class="dialog-close" id="permission-close">×</button>
+      <h2>Recht bearbeiten</h2>
+      <input type="hidden" name="id" />
+      <input type="hidden" name="productId" />
+      <label>Permission Node<input name="permissionNode" required /></label>
+      <label>Command-Hinweis<input name="commandHint" placeholder="z. B. /fly" /></label>
+      <label>Anzeige-Text<input name="benefitLabel" required /></label>
+      <label>Reihenfolge<input name="displayOrder" type="number" value="10" /></label>
+      <button class="btn primary" type="submit">Speichern</button>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+  <script type="module" src="/admin/admin.js"></script>
+</body>
+</html>

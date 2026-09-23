@@ -1,132 +1,160 @@
-# Austria-MC Buy Shop — Cloudflare D1 Edition
+# Austria-MC Shop v3 — GitHub + Cloudflare Worker + D1 + Admin
 
-Diese Version benötigt **keine externe MySQL-Datenbank und kein Hyperdrive**.
-Produkte, Bestellungen und Fulfillment-Status werden direkt in Cloudflare D1 gespeichert.
+Kompletter Rang-Shop für `buy.austria-mc.net` im Austria-MC-Stil — **ohne Skins/Rüstungs-Render und ohne Coins**.
 
 ## Enthalten
 
-- Shop-Frontend im Austria-MC Stil
-- Cloudflare Worker API
-- Cloudflare D1 Datenbank
-- vier kaufbare Ränge:
-  - Spüla+ — 5,00 €
-  - VIP — 10,00 €
-  - VIP+ — 12,00 €
-  - Builder — 25,00 €
-- LuckPerms-Rechte/Command-Hinweise
-- Mollie Checkout für PayPal, paysafecard und Klarna
-- Webhook-Verifikation gegen die Mollie API
-- Fulfillment-API für das spätere Bungee/LuckPerms-Plugin
+- responsives Austria-MC Shop-Design mit Alpen-/Österreich-Look
+- Ränge aus Cloudflare D1: **Spüla+**, **VIP**, **VIP+**, **Builder**
+- Builder-Akzent: deutliches Grau `#6B7280`
+- direkte Zahlungsanbindungen vorbereitet für PayPal, Klarna und paysafecard
+- Fulfillment-API für `AustriaShopBridge.jar` / LuckPerms
+- passwortgeschütztes Adminpanel unter `/admin/`
+- Admin-Dashboard mit Bestellungen, Umsatz, offenen Freischaltungen und Testkäufen
+- Ränge, Preise, Prefixe, Farben und Permissions im Browser bearbeiten
+- kostenlosen Testkauf erzeugen (`PAID + PENDING`, ohne Zahlungsanbieter)
+- D1-Datenbank-Browser für alle Shop-/Admin-Tabellen
+- Audit-Log für Admin-Änderungen
+- Admin-Username und Passwort im Adminpanel änderbar
+- HttpOnly/Secure Admin-Session, CSRF/Origin-Schutz und Login-Drosselung
 
-## 1. D1 Datenbank erstellen
+## Repository-Struktur
 
-Im Cloudflare Dashboard:
+```text
+public/
+  index.html
+  styles.css
+  app.js
+  assets/austria-logo.png
+  admin/
+    index.html
+    admin.css
+    admin.js
+src/
+  index.ts
+schema.sql
+migrate-direct-payments.sql
+migrate-admin.sql
+wrangler.jsonc
+package.json
+```
 
-Storage & databases → D1 → Create database
-
-Name:
-
-`austria-mc-shop`
-
-Danach die **Database ID** kopieren.
-
-## 2. wrangler.jsonc anpassen
+## 1. D1-ID eintragen
 
 In `wrangler.jsonc`:
 
 ```json
-"d1_databases": [
-  {
-    "binding": "DB",
-    "database_name": "austria-mc-shop",
-    "database_id": "DEINE-D1-DATABASE-ID"
-  }
-]
+"database_id": "DEINE-D1-DATABASE-ID"
 ```
 
-## 3. Schema importieren
+Die bestehende D1-Datenbank heißt bei diesem Projekt `austria-mc-shop`.
 
-Lokal im Projektordner:
+## 2. Bestehende Datenbank migrieren
 
-```bash
-npm install
-npx wrangler login
-npx wrangler d1 execute austria-mc-shop --remote --file=./schema.sql
+Wenn du bereits die aktuelle Austria-MC-D1 verwendest, führe in Cloudflare D1 → `austria-mc-shop` → Console nacheinander aus:
+
+1. `migrate-direct-payments.sql` — nur falls noch nicht erfolgt
+2. `migrate-admin.sql` — kann mehrfach ausgeführt werden
+
+Bei einer komplett neuen Datenbank reicht `schema.sql`.
+
+## 3. Cloudflare Runtime-Secrets
+
+Unter Worker → Settings → Variables and Secrets als **Secrets** anlegen:
+
+```text
+FULFILLMENT_TOKEN
+ADMIN_BOOTSTRAP_USERNAME
+ADMIN_BOOTSTRAP_PASSWORD
+ADMIN_SECRET
 ```
 
-Dadurch werden Tabellen, Produkte und Permissions angelegt.
+`ADMIN_SECRET` sollte ein langer zufälliger Wert sein, z. B. 64+ Zeichen.
 
-Alternativ kannst du `schema.sql` im Cloudflare-D1-Dashboard über die SQL-Konsole ausführen.
+Für den ersten Admin-Login verwendest du `ADMIN_BOOTSTRAP_USERNAME` und `ADMIN_BOOTSTRAP_PASSWORD`. Beim ersten erfolgreichen Login wird der Admin-Benutzer in D1 angelegt. Danach kannst du Benutzername und Passwort direkt unter `/admin/` → **Zugang** ändern.
 
-## 4. Secrets setzen
+Die Bootstrap-Werte dienen danach nur noch als Recovery-Vorlage und werden nicht für normale Logins verwendet, sobald `admin_users` existiert.
 
-Im Worker unter Settings → Variables and Secrets:
+### Zahlungsanbieter
 
-- `MOLLIE_API_KEY` als Secret
-- `FULFILLMENT_TOKEN` als Secret
+Nur die Anbieter, die du verwenden willst, benötigen Secrets:
 
-Für Mollie zuerst einen Test-Key verwenden.
+```text
+PAYPAL_CLIENT_ID
+PAYPAL_CLIENT_SECRET
+PAYPAL_WEBHOOK_ID
 
-`STORE_BASE_URL` ist bereits auf `https://buy.austria-mc.net` gesetzt.
+KLARNA_USERNAME
+KLARNA_PASSWORD
 
-## 5. Worker deployen
-
-GitHub mit dem Worker verbinden.
-
-Deploy command:
-
-```bash
-npx wrangler deploy --config wrangler.jsonc
+PAYSAFECARD_API_KEY
 ```
 
-Build command kann leer bleiben.
+Test/Sandbox ist in `wrangler.jsonc` voreingestellt.
 
-## 6. buy.austria-mc.net verbinden
+## 4. Deployment
 
-Beim Worker:
+Cloudflare Builds:
 
-Settings → Domains & Routes → Add → Custom Domain
-
-`buy.austria-mc.net`
-
-Falls die Domain noch am alten Website-Worker hängt, sie dort zuerst entfernen.
-
-## 7. Zahlung
-
-Die verwendeten Mollie Method-IDs sind:
-
-- `paypal`
-- `paysafecard`
-- `klarna`
-
-Diese Methoden müssen in deinem Mollie-Profil aktiviert sein.
-
-## 8. Bungee-Fulfillment
-
-Das spätere Bungee-Plugin ruft mit
-
-`Authorization: Bearer <FULFILLMENT_TOKEN>`
-
-folgendes ab:
-
-`GET /api/fulfillment/pending`
-
-Nach erfolgreicher LuckPerms-Zuweisung:
-
-`POST /api/fulfillment/<ORDER-ID>/complete`
-
-Body:
-
-```json
-{"success":true,"message":"LuckPerms group applied"}
+```text
+Production branch: main
+Root directory: leer
+Build command: leer
+Deploy command: npx wrangler deploy --config ./wrangler.jsonc
 ```
 
-## Wichtig vor Livegang
+## 5. Adminpanel
 
-- Impressum ausfüllen
-- Datenschutz ausfüllen
-- AGB ausfüllen
-- Testkäufe mit PayPal, paysafecard und Klarna durchführen
-- Live-Mollie-Key erst nach erfolgreichem Test setzen
-- Rückerstattungen/Chargebacks organisatorisch definieren
-- danach Bungee-LuckPerms-Fulfillment anschließen
+Aufrufen:
+
+```text
+https://buy.austria-mc.net/admin/
+```
+
+Funktionen:
+
+- **Übersicht**: Käufe, bezahlte Orders, Umsatz, offene LuckPerms-Freischaltungen
+- **Bestellungen**: Spieler, Rang, Zahlung, Fulfillment-Status; bezahlte Aufträge erneut auf `PENDING` setzen
+- **Ränge & Rechte**: Preis, Name, LuckPerms-Gruppe, Prefix, Farbe, Beschreibung, Aktivstatus und Permissions bearbeiten
+- **Testkauf**: kostenlosen Testauftrag erzeugen; AustriaShopBridge verarbeitet ihn wie einen echten bezahlten Kauf
+- **Datenbank**: Inhalte der Shop-/Admin-Tabellen lesen
+- **Zugang**: Admin-Benutzername und Passwort ändern
+
+Echte bezahlte Bestellungen können im Adminpanel absichtlich nicht einfach gelöscht werden. Testbestellungen können gelöscht werden. Das verhindert versehentliches Entfernen von Zahlungsnachweisen.
+
+## 6. AustriaShopBridge
+
+Der Proxy-Bridge-Token muss auf beiden Seiten identisch sein:
+
+Cloudflare Secret:
+
+```text
+FULFILLMENT_TOKEN
+```
+
+Bungee:
+
+```properties
+fulfillment.token=DERSELBE_TOKEN
+```
+
+Der Worker stellt bezahlte Aufträge unter `/api/fulfillment/pending` bereit. AustriaShopBridge setzt die LuckPerms-Gruppe und meldet die Order als `FULFILLED` zurück.
+
+## 7. Kostenlos testen
+
+Im Adminpanel:
+
+```text
+Testkauf → Minecraft-Name → Rang → Testkauf erstellen
+```
+
+Dabei wird **kein Zahlungsanbieter** aufgerufen. Die D1-Order wird direkt als `PAID` + `PENDING` angelegt. AustriaShopBridge sollte den Rang anschließend vergeben. Je nach Tab-/Scoreboard-/Permission-Cache kann ein Rejoin nötig sein, damit der Rang überall sichtbar wird.
+
+## Wichtig vor Live-Zahlungen
+
+- Impressum, Datenschutz und AGB mit echten Daten befüllen
+- Zahlungsanbieter vollständig verifizieren
+- zuerst Sandbox/Test benutzen
+- Webhooks und Rückerstattungsprozess testen
+- Admin-Secrets niemals in GitHub committen
+- `FULFILLMENT_TOKEN` niemals öffentlich teilen
