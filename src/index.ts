@@ -1297,6 +1297,26 @@ export default {
         if (adminResponse) return adminResponse;
       }
 
+      if (url.pathname === "/api/health" && request.method === "GET") {
+        let dbOk = false;
+        let products = 0;
+        try {
+          const row = await env.DB.prepare(`SELECT COUNT(*) AS n FROM products`).first<any>();
+          dbOk = true;
+          products = Number(row?.n || 0);
+        } catch {
+          dbOk = false;
+        }
+        return json({
+          ok: dbOk,
+          database: dbOk,
+          products,
+          adminConfigured: Boolean(env.ADMIN_BOOTSTRAP_USERNAME && env.ADMIN_BOOTSTRAP_PASSWORD && env.ADMIN_SECRET),
+          fulfillmentConfigured: Boolean(env.FULFILLMENT_TOKEN),
+          payments: paymentMethodInfo(env),
+        }, dbOk ? 200 : 503);
+      }
+
       if (url.pathname === "/api/products" && request.method === "GET") {
         return json({ products: await getProducts(env) });
       }

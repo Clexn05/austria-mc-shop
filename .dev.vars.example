@@ -1,13 +1,9 @@
-# NIEMALS echte Secrets committen.
-FULFILLMENT_TOKEN=replace-me
-
-# Admin: nur für den ersten Login / Recovery.
-ADMIN_BOOTSTRAP_USERNAME=admin
-ADMIN_BOOTSTRAP_PASSWORD=replace-with-a-strong-password
-# Langer zufälliger Wert, z. B. 64+ Zeichen.
+# Nur für lokale Entwicklung. Niemals echte Werte committen.
+ADMIN_BOOTSTRAP_PASSWORD=change-me
 ADMIN_SECRET=replace-with-a-long-random-secret
+FULFILLMENT_TOKEN=replace-with-the-same-token-as-austriashopbridge
 
-# Direkte Zahlungsanbieter – zunächst Test/Sandbox verwenden.
+# Optional: Zahlungen
 PAYPAL_CLIENT_ID=
 PAYPAL_CLIENT_SECRET=
 PAYPAL_WEBHOOK_ID=

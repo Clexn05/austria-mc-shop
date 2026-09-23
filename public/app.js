@@ -41,6 +41,13 @@ async function loadProducts() {
     const node = tpl.content.cloneNode(true);
     const card = node.querySelector(".rank-card");
     card.style.setProperty("--accent", p.accent);
+    const iconMap = {
+      "spuela-plus": "✦",
+      "vip": "★",
+      "vip-plus": "♛",
+      "builder": "⚒"
+    };
+    node.querySelector(".rank-icon").textContent = iconMap[p.id] || "◆";
     node.querySelector(".rank-name").textContent = p.name;
     node.querySelector(".rank-price").textContent = euro(p.priceCents);
     node.querySelector(".rank-desc").textContent = p.description;

@@ -1,19 +1,19 @@
 {
   "name": "austria-mc-shop",
   "private": true,
-  "version": "3.1.0",
+  "version": "4.0.0",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy --config wrangler.jsonc",
+    "dev": "wrangler dev --config ./wrangler.jsonc",
+    "deploy": "wrangler deploy --config ./wrangler.jsonc",
     "typecheck": "tsc --noEmit",
-    "db:remote": "wrangler d1 execute austria-mc-shop --remote --file=./schema.sql",
-    "db:local": "wrangler d1 execute austria-mc-shop --local --file=./schema.sql",
-    "db:admin-migration": "wrangler d1 execute austria-mc-shop --remote --file=./migrate-admin.sql"
+    "db:fresh": "wrangler d1 execute austria-mc-shop --remote --file=./schema.sql",
+    "db:admin": "wrangler d1 execute austria-mc-shop --remote --file=./migrate-admin.sql",
+    "db:payments": "wrangler d1 execute austria-mc-shop --remote --file=./migrate-direct-payments.sql"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260923.1",
-    "typescript": "^5.9.2",
-    "wrangler": "^4.137.0"
+    "typescript": "5.9.3",
+    "wrangler": "4.137.0"
   }
 }

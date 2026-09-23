@@ -21,6 +21,7 @@
 
   "vars": {
     "STORE_BASE_URL": "https://buy.austria-mc.net",
+    "ADMIN_BOOTSTRAP_USERNAME": "admin",
     "PAYPAL_ENV": "sandbox",
     "KLARNA_ENV": "playground",
     "PAYSAFECARD_ENV": "test"
