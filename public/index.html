@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#b80f18" />
+  <title>Austria-MC Shop</title>
+  <meta name="description" content="Offizieller Austria-MC Rang-Shop." />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="topline"></div>
+
+  <header class="nav shell">
+    <a class="brand" href="/">
+      <img src="/assets/austria-logo.png" alt="Austria-MC" />
+      <span>AUSTRIA<span>-MC</span></span>
+    </a>
+    <nav>
+      <a class="active" href="#ranks">Ränge</a>
+      <a href="#how">Ablauf</a>
+      <a href="#payments">Bezahlen</a>
+    </nav>
+    <a class="server-pill" href="minecraft://?addExternalServer=Austria-MC|austria-mc.net">austria-mc.net</a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="mountains"></div>
+      <div class="hero-overlay"></div>
+      <div class="shell hero-inner">
+        <div class="hero-logo-wrap">
+          <img class="hero-logo" src="/assets/austria-logo.png" alt="" />
+        </div>
+        <div class="hero-copy">
+          <div class="eyebrow">MEHR ALS NUR EIN SERVER</div>
+          <h1>Dein Rang.<br><span>Dein Austria-MC.</span></h1>
+          <p>Unterstütze das Netzwerk und schalte exklusive Komfort-, Plot- und Builder-Funktionen frei.</p>
+          <div class="hero-actions">
+            <a href="#ranks" class="btn primary">Ränge ansehen</a>
+            <button class="btn ghost" data-copy="austria-mc.net">Server-IP kopieren</button>
+          </div>
+          <div class="trust-row">
+            <span>🇦🇹 Österreichischer Minecraft-Server</span>
+            <span>🔒 Sichere Zahlungsabwicklung</span>
+            <span>⚡ Automatische Freischaltung vorbereitet</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="ranks" class="section shell">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow red">RANGSHOP</div>
+          <h2>Wähle deinen Rang</h2>
+          <p>Die Preise und Rechte werden serverseitig geladen – der Browser kann keine Gruppe manipulieren.</p>
+        </div>
+        <div class="austria-stripe"><i></i><i></i><i></i></div>
+      </div>
+
+      <div id="rank-grid" class="rank-grid">
+        <div class="loading-card">Ränge werden geladen …</div>
+      </div>
+    </section>
+
+    <section id="how" class="section alt">
+      <div class="shell">
+        <div class="section-head centered">
+          <div>
+            <div class="eyebrow red">SO FUNKTIONIERT'S</div>
+            <h2>In drei Schritten zum Rang</h2>
+          </div>
+        </div>
+        <div class="steps">
+          <article><b>1</b><h3>Rang wählen</h3><p>Wähle Builder, VIP+, VIP oder Spüla+.</p></article>
+          <article><b>2</b><h3>Name & Zahlung</h3><p>Gib deinen Minecraft-Namen ein und bezahle sicher.</p></article>
+          <article><b>3</b><h3>Freischaltung</h3><p>Nach bestätigter Zahlung wird der Auftrag für LuckPerms bereitgestellt.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="payments" class="section shell">
+      <div class="payments-panel">
+        <div>
+          <div class="eyebrow red">SICHER BEZAHLEN</div>
+          <h2>PayPal, paysafecard & Klarna</h2>
+          <p>Die Zahlungsdaten werden nicht auf unserem Minecraft-Server gespeichert. Die eigentliche Zahlung läuft beim Zahlungsanbieter.</p>
+        </div>
+        <div class="payment-logos">
+          <div class="pay-logo paypal">PayPal</div>
+          <div class="pay-logo paysafe">paysafecard</div>
+          <div class="pay-logo klarna">Klarna.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell footer-row">
+      <div class="footer-brand">
+        <img src="/assets/austria-logo.png" alt="" />
+        <div><strong>AUSTRIA-MC</strong><small>Mehr als ein Server. Eine Community.</small></div>
+      </div>
+      <div class="legal">
+        <a href="/impressum">Impressum</a>
+        <a href="/datenschutz">Datenschutz</a>
+        <a href="/agb">AGB</a>
+      </div>
+      <span>Servus im Spiel! ❤️</span>
+    </div>
+  </footer>
+
+  <dialog id="checkout-dialog">
+    <form id="checkout-form" method="dialog">
+      <button type="button" class="close" id="close-checkout">×</button>
+      <div class="dialog-head">
+        <div class="eyebrow red">CHECKOUT</div>
+        <h2 id="checkout-title">Rang kaufen</h2>
+        <p id="checkout-price"></p>
+      </div>
+
+      <input type="hidden" name="productId" id="productId" />
+
+      <div class="form-grid">
+        <label class="full">Minecraft-Name
+          <input name="minecraftName" required minlength="3" maxlength="16" pattern="[A-Za-z0-9_]{3,16}" placeholder="o_Twice_o" />
+        </label>
+        <label>Vorname<input name="givenName" required /></label>
+        <label>Nachname<input name="familyName" required /></label>
+        <label class="full">E-Mail<input name="email" type="email" required /></label>
+        <label class="full">Straße & Hausnummer<input name="streetAndNumber" required /></label>
+        <label>PLZ<input name="postalCode" required /></label>
+        <label>Ort<input name="city" required /></label>
+        <label>Land (ISO)<input name="country" required value="AT" maxlength="2" /></label>
+      </div>
+
+      <fieldset>
+        <legend>Zahlungsart</legend>
+        <div class="method-grid">
+          <label><input type="radio" name="paymentMethod" value="paypal" checked /><span>PayPal</span></label>
+          <label><input type="radio" name="paymentMethod" value="paysafecard" /><span>paysafecard</span></label>
+          <label><input type="radio" name="paymentMethod" value="klarna" /><span>Klarna.</span></label>
+        </div>
+      </fieldset>
+
+      <label class="terms">
+        <input type="checkbox" required />
+        <span>Ich bestätige Minecraft-Name und Produkt und akzeptiere die Shop-Bedingungen.</span>
+      </label>
+
+      <button class="btn primary submit" type="submit">Sicher zur Zahlung</button>
+      <p class="form-status" id="form-status"></p>
+    </form>
+  </dialog>
+
+  <dialog id="status-dialog">
+    <div class="status-box">
+      <button type="button" class="close" id="close-status">×</button>
+      <div class="eyebrow red">BESTELLSTATUS</div>
+      <h2 id="status-title">Bestellung wird geprüft …</h2>
+      <p id="status-copy"></p>
+      <button class="btn primary" id="refresh-status">Status aktualisieren</button>
+    </div>
+  </dialog>
+
+  <template id="rank-template">
+    <article class="rank-card">
+      <div class="rank-topline"></div>
+      <div class="rank-head">
+        <div>
+          <span class="rank-kicker">AUSTRIA-MC RANG</span>
+          <h3 class="rank-name"></h3>
+        </div>
+        <div class="rank-price"></div>
+      </div>
+      <p class="rank-desc"></p>
+      <div class="prefix-preview"></div>
+      <ul class="benefits"></ul>
+      <details>
+        <summary>Alle LuckPerms-Rechte anzeigen</summary>
+        <div class="permission-list"></div>
+      </details>
+      <button class="btn primary buy-btn">Jetzt kaufen</button>
+    </article>
+  </template>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
