@@ -1,7 +1,7 @@
 {
   "name": "austria-mc-buy",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.1.1",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
@@ -11,8 +11,8 @@
     "db:local": "wrangler d1 execute austria-mc-shop --local --file=./schema.sql"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260920.0",
+    "@cloudflare/workers-types": "5.20260923.1",
     "typescript": "^5.9.2",
-    "wrangler": "^4.38.0"
+    "wrangler": "^4.136.3"
   }
 }
