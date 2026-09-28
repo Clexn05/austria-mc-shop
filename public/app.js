@@ -3,8 +3,14 @@ const tpl = document.querySelector("#rank-template");
 const checkout = document.querySelector("#checkout-dialog");
 const checkoutForm = document.querySelector("#checkout-form");
 const statusDialog = document.querySelector("#status-dialog");
+const cardFieldsWrap = document.querySelector("#card-fields-wrap");
+const cardStatus = document.querySelector("#card-status");
+const checkoutSubmit = checkoutForm.querySelector(".submit");
 
 let products = [];
+let paypalSdkUrl = "";
+let cardSession = null;
+let cardInitPromise = null;
 
 function euro(cents) {
   return new Intl.NumberFormat("de-AT", { style:"currency", currency:"EUR" }).format(cents / 100);
@@ -73,21 +79,179 @@ async function loadProducts() {
   }
 }
 
+function selectedPaymentMethod() {
+  return checkoutForm.querySelector('input[name="paymentMethod"]:checked')?.value || "paypal";
+}
+
+function updatePaymentUi() {
+  const method = selectedPaymentMethod();
+  const isCard = method === "card";
+  cardFieldsWrap.hidden = !isCard;
+  checkoutSubmit.textContent = isCard ? "Jetzt mit Karte bezahlen" : "Weiter zu PayPal";
+
+  if (isCard) {
+    initCardFields().catch(err => {
+      cardStatus.textContent = err.message || String(err);
+      disableCardMethod("Karte (nicht verfügbar)");
+    });
+  }
+}
+
 function openCheckout(product) {
   document.querySelector("#productId").value = product.id;
   document.querySelector("#checkout-title").textContent = `${product.name} kaufen`;
-  document.querySelector("#checkout-price").textContent = `${euro(product.priceCents)} einmalig`;
+  document.querySelector("#checkout-price").textContent = `${euro(product.priceCents)} einmalig · Endpreis`;
   document.querySelector("#form-status").textContent = "";
+  updatePaymentUi();
   checkout.showModal();
 }
 
 document.querySelector("#close-checkout").addEventListener("click", () => checkout.close());
 document.querySelector("#close-status").addEventListener("click", () => statusDialog.close());
 
+for (const radio of document.querySelectorAll('input[name="paymentMethod"]')) {
+  radio.addEventListener("change", updatePaymentUi);
+}
+
+function loadExternalScript(src) {
+  if (window.paypal?.createInstance) return Promise.resolve();
+  const existing = [...document.scripts].find(s => s.src === src);
+  if (existing) {
+    return new Promise((resolve, reject) => {
+      existing.addEventListener("load", resolve, { once: true });
+      existing.addEventListener("error", () => reject(new Error("PayPal SDK konnte nicht geladen werden.")), { once: true });
+    });
+  }
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.addEventListener("load", resolve, { once: true });
+    script.addEventListener("error", () => reject(new Error("PayPal SDK konnte nicht geladen werden.")), { once: true });
+    document.head.appendChild(script);
+  });
+}
+
+function disableCardMethod(labelText) {
+  const radio = checkoutForm.querySelector('input[name="paymentMethod"][value="card"]');
+  if (!radio) return;
+  radio.disabled = true;
+  const label = radio.closest("label");
+  if (label) {
+    label.classList.add("disabled");
+    const span = label.querySelector("span");
+    if (span) span.textContent = labelText;
+  }
+  if (radio.checked) {
+    const paypal = checkoutForm.querySelector('input[name="paymentMethod"][value="paypal"]:not(:disabled)');
+    if (paypal) paypal.checked = true;
+  }
+  cardFieldsWrap.hidden = true;
+  checkoutSubmit.textContent = "Weiter zu PayPal";
+}
+
+async function initCardFields() {
+  if (cardSession) return cardSession;
+  if (cardInitPromise) return cardInitPromise;
+
+  cardInitPromise = (async () => {
+    if (!paypalSdkUrl) throw new Error("Kartenzahlung ist noch nicht eingerichtet.");
+    cardStatus.textContent = "Sichere Kartenfelder werden über PayPal geladen …";
+
+    const [tokenResponse] = await Promise.all([
+      fetch("/api/paypal/client-token"),
+      loadExternalScript(paypalSdkUrl),
+    ]);
+    const tokenData = await tokenResponse.json().catch(() => ({}));
+    if (!tokenResponse.ok || !tokenData.accessToken) {
+      throw new Error(tokenData.error || "PayPal-Kartenzahlung konnte nicht initialisiert werden.");
+    }
+
+    const sdk = await window.paypal.createInstance({
+      clientToken: tokenData.accessToken,
+      components: ["card-fields"],
+      pageType: "checkout",
+    });
+    const methods = await sdk.findEligibleMethods({ currencyCode: "EUR" });
+    if (!methods.isEligible("advanced_cards")) {
+      throw new Error("Kartenzahlung ist für dieses PayPal-Konto noch nicht freigeschaltet.");
+    }
+
+    const session = sdk.createCardFieldsOneTimePaymentSession();
+    const fieldStyle = {
+      input: {
+        fontSize: "16px",
+        lineHeight: "24px",
+        color: "#171a1f",
+        padding: "10px 12px",
+      },
+    };
+    const numberField = session.createCardFieldsComponent({ type: "number", placeholder: "Kartennummer", style: fieldStyle });
+    const expiryField = session.createCardFieldsComponent({ type: "expiry", placeholder: "MM/JJ", style: fieldStyle });
+    const cvvField = session.createCardFieldsComponent({ type: "cvv", placeholder: "CVC", style: fieldStyle });
+
+    document.querySelector("#paypal-card-fields-number").replaceChildren(numberField);
+    document.querySelector("#paypal-card-fields-expiry").replaceChildren(expiryField);
+    document.querySelector("#paypal-card-fields-cvv").replaceChildren(cvvField);
+
+    cardSession = session;
+    cardStatus.textContent = "Kartendaten werden direkt von PayPal verarbeitet und nicht auf Austria-MC gespeichert.";
+    return session;
+  })();
+
+  try {
+    return await cardInitPromise;
+  } catch (err) {
+    cardInitPromise = null;
+    throw err;
+  }
+}
+
+async function postJson(url, payload) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: payload === undefined ? undefined : JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Zahlung konnte nicht vorbereitet werden.");
+  return data;
+}
+
+async function handleCardCheckout(payload) {
+  const session = await initCardFields();
+  const created = await postJson("/api/paypal/card/order", payload);
+  if (!created.paypalOrderId || !created.orderId) throw new Error("PayPal-Kartenbestellung konnte nicht erstellt werden.");
+
+  const result = await session.submit(created.paypalOrderId, {
+    billingAddress: {
+      streetAddress: String(payload.streetAndNumber || ""),
+      city: String(payload.city || ""),
+      postalCode: String(payload.postalCode || ""),
+      countryCode: String(payload.country || "AT").toUpperCase(),
+    },
+  });
+
+  if (result.state === "canceled") {
+    throw new Error("Kartenprüfung wurde abgebrochen. Du kannst es erneut versuchen.");
+  }
+  if (result.state === "failed") {
+    throw new Error(result.data?.message || "Kartenzahlung wurde abgelehnt. Bitte Kartendaten prüfen oder PayPal verwenden.");
+  }
+  if (result.state !== "succeeded") {
+    throw new Error("Kartenzahlung ist noch nicht abgeschlossen. Bitte erneut versuchen.");
+  }
+
+  const paypalOrderId = result.data?.orderId || created.paypalOrderId;
+  const captured = await postJson(`/api/paypal/card/orders/${encodeURIComponent(paypalOrderId)}/capture`);
+  if (!captured.orderId) throw new Error("Zahlung wurde verarbeitet, aber der Bestellstatus konnte nicht geladen werden.");
+  location.href = `/?order=${encodeURIComponent(captured.orderId)}`;
+}
+
 checkoutForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const status = document.querySelector("#form-status");
-  const submit = checkoutForm.querySelector(".submit");
+  const submit = checkoutSubmit;
   submit.disabled = true;
   status.textContent = "Rang wird geprüft und Zahlung vorbereitet …";
 
@@ -95,13 +259,13 @@ checkoutForm.addEventListener("submit", async (event) => {
   const payload = Object.fromEntries(fd.entries());
 
   try {
-    const res = await fetch("/api/checkout", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Checkout fehlgeschlagen.");
+    if (payload.paymentMethod === "card") {
+      status.textContent = "Rang wird geprüft, danach wird die Karte sicher über PayPal verarbeitet …";
+      await handleCardCheckout(payload);
+      return;
+    }
+
+    const data = await postJson("/api/checkout", payload);
     if (!data.checkoutUrl) throw new Error("Keine Checkout-URL erhalten.");
     location.href = data.checkoutUrl;
   } catch (err) {
@@ -119,12 +283,17 @@ for (const el of document.querySelectorAll("[data-copy]")) {
   });
 }
 
-
 async function loadPaymentMethods() {
   const res = await fetch("/api/payment-methods");
   if (!res.ok) return;
   const data = await res.json();
   const methods = data.methods || {};
+  paypalSdkUrl = methods.card?.sdkUrl || "";
+
+  const labels = {
+    paypal: "PayPal",
+    card: "Kredit-/Debitkarte",
+  };
   const radios = [...document.querySelectorAll('input[name="paymentMethod"]')];
   let firstEnabled = null;
   for (const radio of radios) {
@@ -136,7 +305,7 @@ async function loadPaymentMethods() {
       label.classList.toggle("disabled", !enabled);
       const span = label.querySelector("span");
       if (span) {
-        const base = radio.value === "paypal" ? "PayPal" : radio.value === "klarna" ? "Klarna." : "paysafecard";
+        const base = labels[radio.value] || radio.value;
         span.textContent = enabled ? base : `${base} (noch nicht eingerichtet)`;
       }
     }
@@ -144,6 +313,7 @@ async function loadPaymentMethods() {
   }
   const selected = radios.find(r => r.checked && !r.disabled);
   if (!selected && firstEnabled) firstEnabled.checked = true;
+  updatePaymentUi();
 }
 
 let currentOrder = null;

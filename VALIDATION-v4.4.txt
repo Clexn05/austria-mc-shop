@@ -1,0 +1,30 @@
+Austria-MC Shop v4.4 – Validierung
+==================================
+
+Durchgeführt am 2026-09-28.
+
+Erfolgreich geprüft:
+- public/app.js: JavaScript-Syntaxprüfung mit Node.js
+- src/index.ts: TypeScript-Strict-Typecheck mit Cloudflare-D1-Teststubs
+- /api/payment-methods meldet PayPal + Karte bei vorhandenen PayPal-Credentials
+- PayPal Web SDK URL wechselt korrekt zwischen sandbox und live
+- Browser-safe Client Token Route liefert nur den kurzlebigen PayPal Client Token, nie Client Secret
+- Kartenorder speichert aus D1-Kompatibilitätsgründen payment_method=paypal
+- Kartenorder wird eindeutig als provider_name=paypal-card markiert
+- PayPal Kartenorder verwendet exakt price_cents / 100; kein Gebührenaufschlag
+- Card-Order wird ohne rohe Kartendaten und ohne payment_source.card auf dem Austria-MC-Server erstellt; PayPal Card Fields hängt die Zahlungsquelle im Browser an
+- Capture der Kartenorder setzt die Bestellung auf PAID und PENDING Fulfillment
+- bestehender PayPal-Redirect-Checkout funktioniert nach der Refaktorierung weiter und berechnet ebenfalls exakt den Produktpreis
+- PayPal-Webhook sucht sowohl provider_name=paypal als auch provider_name=paypal-card
+- keine D1-Migration für v4.4 notwendig
+- öffentliche Checkout-Oberfläche zeigt nur PayPal und Kredit-/Debitkarte
+- Rangprüfung wird weiterhin vor der Order-Erstellung ausgeführt
+
+Nicht live getestet:
+- echte PayPal-Sandbox-/Live-Credentials des Betreibers
+- tatsächliche Freischaltung von Advanced Cards auf dem PayPal-Händlerkonto
+- echter 3-D-Secure-Dialog mit Bank/Karte
+- Live-Cloudflare-Deployment
+
+Wichtig:
+Wenn PayPal advanced_cards für den Account nicht als verfügbar meldet, deaktiviert die UI die Kartenoption automatisch. Das ist beabsichtigt und verhindert eine nicht funktionierende Zahlungsart.

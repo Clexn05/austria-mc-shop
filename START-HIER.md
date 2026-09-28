@@ -140,11 +140,49 @@ Der Shop fragt **vor dem Erstellen einer Zahlung** den aktuellen LuckPerms-Rang 
 spüla+ < vip < vip+ < builder
 ```
 
-Zusätzlich sind die Staff-Gruppen `mod`, `admin` und `inhaber` geschützt. Weitere Staff-Gruppen können in `plugins/AustriaShopBridge/config.properties` über `protected.groups=` ergänzt werden.
+Mit dem aktuell funktionierenden `AustriaShopBridge v1.1.1` werden standardmäßig unter anderem `mod`, `moderator`, `admin`, `administrator`, `inhaber`, `inhoba` und `owner` als geschützte Staff-Gruppen erkannt. Weitere Staff-Gruppen können in `plugins/AustriaShopBridge/config.properties` über `protected.groups=` ergänzt werden.
 
 Wichtig ist die Update-Reihenfolge:
 
-1. **Zuerst** `AustriaShopBridge-v1.1.0.jar` auf dem Proxy ersetzen und den Proxy neu starten. Die bestehende `plugins/AustriaShopBridge/config.properties` behalten.
-2. **Danach** diese Shop-v4.3-Dateien ins GitHub-Repo kopieren/committen und deployen.
+1. Für den Rangschutz `AustriaShopBridge v1.1.1` verwenden und die bestehende `plugins/AustriaShopBridge/config.properties` behalten.
+2. Danach die Shop-Dateien ins GitHub-Repo kopieren/committen und deployen.
 
 So bleibt der alte Shop während des Plugin-Updates weiter nutzbar. Sobald v4.3 online ist, ist die serverseitige Rangprüfung aktiv. Wenn der Proxy bzw. das Plugin nicht erreichbar ist, wird der Checkout absichtlich blockiert, statt eine möglicherweise falsche Zahlung zu starten.
+
+## PayPal + Kredit-/Debitkarte (seit v4.4)
+
+Der öffentliche Checkout zeigt jetzt nur noch:
+
+```text
+PayPal
+Kredit-/Debitkarte
+```
+
+Beide Zahlungsarten werden über PayPal verarbeitet. Die Kartenfelder kommen aus dem PayPal Web SDK v6; Austria-MC erhält keine rohe Kartennummer und speichert keine Kartendaten.
+
+### Update von v4.3
+
+1. Die Dateien der aktuellen Shop-ZIP über deine bestehenden Shop-Dateien kopieren.
+2. `AustriaShopBridge v1.1.1` auf dem Proxy **nicht ändern** – der funktionierende Rangschutz bleibt bestehen.
+3. Es ist **keine neue D1-Migration** erforderlich.
+4. Deine bestehenden Secrets `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` und `PAYPAL_WEBHOOK_ID` bleiben erhalten.
+5. Deployen:
+
+```powershell
+npx.cmd wrangler deploy --config .\wrangler.jsonc
+```
+
+### Preise in v4.5
+
+Der Admin-/D1-Preis ist jetzt der **Basis-/Zielpreis**. Der Shop berechnet daraus vor der Anzeige einen einheitlichen Kunden-Endpreis für PayPal und Karte. Standardmäßig gilt `3,4 % + 0,35 €`; die Werte stehen als `PRICE_COST_PERCENT` und `PRICE_COST_FIXED_CENTS` in `wrangler.jsonc` und können an deinen echten Tarif angepasst werden.
+
+Beispiel: Aus `1000` Cent Basis-/Zielpreis werden mit den Standardwerten **10,72 € Kunden-Endpreis**. Im Checkout kommt danach keine weitere Zahlungsgebühr mehr hinzu.
+
+### Wenn „Karte“ nicht verfügbar ist
+
+Dann ist dein PayPal-Konto sehr wahrscheinlich noch nicht für **Advanced Card Payments** freigeschaltet oder die PayPal-Secrets/Umgebung stimmen nicht. Der Shop deaktiviert die Karte in diesem Fall automatisch, damit keine kaputte Zahlungsart angeboten wird.
+
+
+## Update v4.5 – Endpreis-Kostenpuffer
+
+Für v4.5 ist **keine D1-Migration** nötig. Kopiere die Shop-Dateien über v4.4, prüfe in `wrangler.jsonc` die Werte `PRICE_COST_PERCENT` und `PRICE_COST_FIXED_CENTS`, teste zuerst in der PayPal-Sandbox und deploye anschließend. `AustriaShopBridge v1.1.1` bleibt unverändert.

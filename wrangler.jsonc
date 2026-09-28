@@ -23,6 +23,8 @@
     "STORE_BASE_URL": "https://buy.austria-mc.net",
     "ADMIN_BOOTSTRAP_USERNAME": "admin",
     "PAYPAL_ENV": "sandbox",
+    "PRICE_COST_PERCENT": "3.4",
+    "PRICE_COST_FIXED_CENTS": "35",
     "KLARNA_ENV": "playground",
     "PAYSAFECARD_ENV": "test"
   },

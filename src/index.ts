@@ -13,6 +13,9 @@ interface Env {
   PAYPAL_CLIENT_SECRET?: string;
   PAYPAL_WEBHOOK_ID?: string;
 
+  PRICE_COST_PERCENT?: string;
+  PRICE_COST_FIXED_CENTS?: string;
+
   KLARNA_ENV?: string;
   KLARNA_USERNAME?: string;
   KLARNA_PASSWORD?: string;
@@ -24,11 +27,12 @@ interface Env {
 }
 
 type PaymentMethod = "paypal" | "paysafecard" | "klarna";
+type CheckoutPaymentMethod = PaymentMethod | "card";
 
 type CheckoutBody = {
   productId: string;
   minecraftName: string;
-  paymentMethod: PaymentMethod;
+  paymentMethod: CheckoutPaymentMethod;
   email: string;
   givenName: string;
   familyName: string;
@@ -84,6 +88,28 @@ function isMinecraftName(value: string) {
 
 function isCountry(value: string) {
   return /^[A-Z]{2}$/.test(value);
+}
+
+type PriceCostSettings = {
+  percent: number;
+  fixedCents: number;
+};
+
+function priceCostSettings(env: Env): PriceCostSettings {
+  const percentRaw = Number(env.PRICE_COST_PERCENT ?? "3.4");
+  const fixedRaw = Number(env.PRICE_COST_FIXED_CENTS ?? "35");
+  const percent = Number.isFinite(percentRaw) && percentRaw >= 0 && percentRaw < 100 ? percentRaw : 3.4;
+  const fixedCents = Number.isFinite(fixedRaw) && fixedRaw >= 0 ? Math.round(fixedRaw) : 35;
+  return { percent, fixedCents };
+}
+
+function customerPriceCents(env: Env, basePriceCents: number) {
+  const base = Math.max(0, Math.round(Number(basePriceCents) || 0));
+  const { percent, fixedCents } = priceCostSettings(env);
+  const rate = percent / 100;
+  // Gross-up so that after an assumed percentage + fixed processing cost,
+  // the remaining amount is at least the configured base price.
+  return Math.max(base, Math.ceil((base + fixedCents) / (1 - rate)));
 }
 
 function authFulfillment(request: Request, env: Env) {
@@ -173,18 +199,28 @@ async function requestRankEligibility(env: Env, minecraftName: string, targetGro
   };
 }
 
-function methodEnabled(env: Env, method: PaymentMethod) {
-  if (method === "paypal") return Boolean(env.PAYPAL_CLIENT_ID && env.PAYPAL_CLIENT_SECRET);
+function methodEnabled(env: Env, method: CheckoutPaymentMethod) {
+  if (method === "paypal" || method === "card") return Boolean(env.PAYPAL_CLIENT_ID && env.PAYPAL_CLIENT_SECRET);
   if (method === "klarna") return Boolean(env.KLARNA_USERNAME && env.KLARNA_PASSWORD);
   if (method === "paysafecard") return Boolean(env.PAYSAFECARD_API_KEY);
   return false;
 }
 
 function paymentMethodInfo(env: Env) {
+  const paypalMode = (env.PAYPAL_ENV || "sandbox").toLowerCase();
+  const paypalEnabled = methodEnabled(env, "paypal");
   return {
     paypal: {
-      enabled: methodEnabled(env, "paypal"),
-      mode: (env.PAYPAL_ENV || "sandbox").toLowerCase(),
+      enabled: paypalEnabled,
+      mode: paypalMode,
+    },
+    card: {
+      enabled: paypalEnabled,
+      mode: paypalMode,
+      processor: "paypal",
+      sdkUrl: paypalMode === "live"
+        ? "https://www.paypal.com/web-sdk/v6/core"
+        : "https://www.sandbox.paypal.com/web-sdk/v6/core",
     },
     klarna: {
       enabled: methodEnabled(env, "klarna"),
@@ -238,7 +274,8 @@ async function getProducts(env: Env) {
     id: p.id,
     name: p.display_name,
     group: p.luckperms_group,
-    priceCents: p.price_cents,
+    basePriceCents: p.price_cents,
+    priceCents: customerPriceCents(env, p.price_cents),
     prefix: p.prefix_legacy,
     accent: p.accent_hex,
     description: p.description,
@@ -309,6 +346,32 @@ async function paypalAccessToken(env: Env) {
     throw new Error("PayPal-Zugangsdaten wurden abgelehnt.");
   }
   return String(body.access_token);
+}
+
+async function paypalBrowserSafeClientToken(env: Env) {
+  if (!env.PAYPAL_CLIENT_ID || !env.PAYPAL_CLIENT_SECRET) {
+    throw new Error("PayPal ist noch nicht eingerichtet.");
+  }
+  const basic = btoa(`${env.PAYPAL_CLIENT_ID}:${env.PAYPAL_CLIENT_SECRET}`);
+  const response = await fetch(`${paypalApiBase(env)}/v1/oauth2/token`, {
+    method: "POST",
+    headers: {
+      authorization: `Basic ${basic}`,
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body: "grant_type=client_credentials&response_type=client_token&intent=sdk_init",
+  });
+  const body = (await response.json().catch(() => ({}))) as any;
+  if (!response.ok || !body.access_token) {
+    console.error("PayPal client token error", response.status, body);
+    throw new Error("PayPal-Kartenzahlung konnte nicht initialisiert werden.");
+  }
+  return String(body.access_token);
+}
+
+async function paypalClientTokenResponse(env: Env) {
+  const accessToken = await paypalBrowserSafeClientToken(env);
+  return json({ accessToken });
 }
 
 async function paypalRequest(env: Env, path: string, init: RequestInit = {}) {
@@ -450,7 +513,7 @@ async function paypalWebhook(request: Request, env: Env) {
 
   if (paypalOrderId) {
     const order = await env.DB.prepare(
-      `SELECT id FROM shop_orders WHERE provider_name = 'paypal' AND provider_payment_id = ? LIMIT 1`
+      `SELECT id FROM shop_orders WHERE provider_name IN ('paypal','paypal-card') AND provider_payment_id = ? LIMIT 1`
     ).bind(paypalOrderId).first<{id: string}>();
     if (order) {
       const full = await getShopOrder(env, order.id);
@@ -734,7 +797,24 @@ async function paysafecardNotification(request: Request, env: Env) {
 
 /* ------------------------- Checkout / Orders ---------------------- */
 
-async function createCheckout(request: Request, env: Env) {
+type PreparedCheckout = {
+  paymentMethod: CheckoutPaymentMethod;
+  minecraftName: string;
+  email: string;
+  givenName: string;
+  familyName: string;
+  streetAndNumber: string;
+  postalCode: string;
+  city: string;
+  country: string;
+  product: any;
+};
+
+async function prepareCheckout(
+  request: Request,
+  env: Env,
+  allowedMethods: CheckoutPaymentMethod[]
+): Promise<PreparedCheckout | Response> {
   const input = (await request.json()) as Partial<CheckoutBody>;
   const required = [
     "productId", "minecraftName", "paymentMethod", "email",
@@ -749,8 +829,8 @@ async function createCheckout(request: Request, env: Env) {
     return json({ error: "Minecraft-Name muss 3–16 Zeichen lang sein und darf nur A-Z, 0-9 und _ enthalten." }, 400);
   }
 
-  const paymentMethod = input.paymentMethod as PaymentMethod;
-  if (!["paypal", "paysafecard", "klarna"].includes(paymentMethod)) return json({ error: "Ungültige Zahlungsart." }, 400);
+  const paymentMethod = input.paymentMethod as CheckoutPaymentMethod;
+  if (!allowedMethods.includes(paymentMethod)) return json({ error: "Ungültige Zahlungsart." }, 400);
   if (!methodEnabled(env, paymentMethod)) return json({ error: `${paymentMethod} ist noch nicht eingerichtet.` }, 503);
 
   const country = String(input.country).trim().toUpperCase();
@@ -773,7 +853,29 @@ async function createCheckout(request: Request, env: Env) {
     return json({ error: eligibility.message }, 503);
   }
 
+  return {
+    paymentMethod,
+    minecraftName,
+    email: String(input.email).trim(),
+    givenName: String(input.givenName).trim(),
+    familyName: String(input.familyName).trim(),
+    streetAndNumber: String(input.streetAndNumber).trim(),
+    postalCode: String(input.postalCode).trim(),
+    city: String(input.city).trim(),
+    country,
+    product,
+  };
+}
+
+async function insertCheckoutOrder(
+  env: Env,
+  prepared: PreparedCheckout,
+  storedPaymentMethod: PaymentMethod,
+  providerName: string
+) {
   const orderId = crypto.randomUUID();
+  const product = prepared.product;
+  const customerPrice = customerPriceCents(env, product.price_cents);
   await env.DB.prepare(
     `INSERT INTO shop_orders
      (id, minecraft_name, product_id, luckperms_group, price_cents, currency,
@@ -783,33 +885,97 @@ async function createCheckout(request: Request, env: Env) {
      VALUES (?, ?, ?, ?, ?, 'EUR', ?, 'CREATED', 'WAITING_PAYMENT', ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     orderId,
-    minecraftName,
+    prepared.minecraftName,
     product.id,
     product.luckperms_group,
-    product.price_cents,
-    paymentMethod,
-    paymentMethod,
-    String(input.email).trim(),
-    String(input.givenName).trim(),
-    String(input.familyName).trim(),
-    String(input.streetAndNumber).trim(),
-    String(input.postalCode).trim(),
-    String(input.city).trim(),
-    country
+    customerPrice,
+    storedPaymentMethod,
+    providerName,
+    prepared.email,
+    prepared.givenName,
+    prepared.familyName,
+    prepared.streetAndNumber,
+    prepared.postalCode,
+    prepared.city,
+    prepared.country
   ).run();
 
   const order = await getShopOrder(env, orderId);
   if (!order) throw new Error("Bestellung konnte nicht gespeichert werden.");
+  return order;
+}
+
+async function createCheckout(request: Request, env: Env) {
+  const prepared = await prepareCheckout(request, env, ["paypal", "paysafecard", "klarna"]);
+  if (prepared instanceof Response) return prepared;
+
+  const paymentMethod = prepared.paymentMethod as PaymentMethod;
+  const order = await insertCheckoutOrder(env, prepared, paymentMethod, paymentMethod);
 
   try {
     let result: { checkoutUrl: string };
-    if (paymentMethod === "paypal") result = await createPayPalCheckout(env, order, product);
-    else if (paymentMethod === "klarna") result = await createKlarnaCheckout(env, order, product);
-    else result = await createPaysafecardCheckout(env, order, product);
-    return json({ orderId, checkoutUrl: result.checkoutUrl }, 201);
+    if (paymentMethod === "paypal") result = await createPayPalCheckout(env, order, prepared.product);
+    else if (paymentMethod === "klarna") result = await createKlarnaCheckout(env, order, prepared.product);
+    else result = await createPaysafecardCheckout(env, order, prepared.product);
+    return json({ orderId: order.id, checkoutUrl: result.checkoutUrl }, 201);
   } catch (error) {
-    await markPaymentState(env, orderId, "FAILED", String(error).slice(0, 255));
+    await markPaymentState(env, order.id, "FAILED", String(error).slice(0, 255));
     throw error;
+  }
+}
+
+async function createPayPalCardOrder(request: Request, env: Env) {
+  const prepared = await prepareCheckout(request, env, ["card"]);
+  if (prepared instanceof Response) return prepared;
+
+  const order = await insertCheckoutOrder(env, prepared, "paypal", "paypal-card");
+  const amount = (order.price_cents / 100).toFixed(2);
+
+  try {
+    const payment = await paypalRequest(env, "/v2/checkout/orders", {
+      method: "POST",
+      headers: { "PayPal-Request-Id": `card-${order.id}` },
+      body: JSON.stringify({
+        intent: "CAPTURE",
+        purchase_units: [{
+          reference_id: order.id,
+          custom_id: order.id,
+          description: `Austria-MC ${prepared.product.display_name} Rang`,
+          amount: { currency_code: "EUR", value: amount },
+        }],
+      }),
+    });
+
+    if (!payment.id) throw new Error("PayPal hat keine Karten-Bestell-ID zurückgegeben.");
+    await env.DB.prepare(
+      `UPDATE shop_orders
+       SET provider_name = 'paypal-card', provider_payment_id = ?, payment_status = 'OPEN', updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    ).bind(payment.id, order.id).run();
+
+    return json({ orderId: order.id, paypalOrderId: payment.id }, 201);
+  } catch (error) {
+    await markPaymentState(env, order.id, "FAILED", String(error).slice(0, 255));
+    throw error;
+  }
+}
+
+async function capturePayPalCardOrder(env: Env, paypalOrderId: string) {
+  const ref = await env.DB.prepare(
+    `SELECT id FROM shop_orders
+     WHERE provider_name = 'paypal-card' AND provider_payment_id = ? LIMIT 1`
+  ).bind(paypalOrderId).first<{id: string}>();
+  if (!ref) return json({ error: "Kartenbestellung wurde nicht gefunden." }, 404);
+
+  const order = await getShopOrder(env, ref.id);
+  if (!order) return json({ error: "Kartenbestellung wurde nicht gefunden." }, 404);
+
+  try {
+    await capturePayPalOrder(env, order, paypalOrderId);
+    return json({ orderId: order.id, paymentStatus: "PAID" });
+  } catch (error) {
+    console.error("PayPal card capture failed", error);
+    return json({ error: error instanceof Error ? error.message : "Kartenzahlung konnte nicht abgeschlossen werden." }, 502);
   }
 }
 
@@ -1190,7 +1356,12 @@ async function adminProducts(request: Request, env: Env) {
     if (!grouped.has(permission.product_id)) grouped.set(permission.product_id, []);
     grouped.get(permission.product_id)!.push(permission);
   }
-  return json({ products: (productRows.results || []).map((p: any) => ({ ...p, active: Boolean(p.active), permissions: grouped.get(p.id) || [] })) });
+  return json({ products: (productRows.results || []).map((p: any) => ({
+    ...p,
+    active: Boolean(p.active),
+    customer_price_cents: customerPriceCents(env, p.price_cents),
+    permissions: grouped.get(p.id) || [],
+  })) });
 }
 
 async function adminUpdateProduct(request: Request, env: Env, productId: string) {
@@ -1350,13 +1521,14 @@ async function adminTestPurchase(request: Request, env: Env) {
     return json({ error: eligibility.message }, 503);
   }
   const orderId = crypto.randomUUID();
+  const customerPrice = customerPriceCents(env, product.price_cents);
   await env.DB.prepare(`
     INSERT INTO shop_orders
       (id,minecraft_name,product_id,luckperms_group,price_cents,currency,payment_method,payment_status,fulfillment_status,
        provider_name,provider_order_id,customer_email,given_name,family_name,street_and_number,postal_code,city,country,paid_at,updated_at)
     VALUES (?, ?, ?, ?, ?, 'EUR', 'paypal', 'PAID', 'PENDING', 'admin-test', ?, 'admin-test@austria-mc.net',
       'Admin', 'Testkauf', 'Test 1', '0000', 'Austria-MC', 'AT', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-  `).bind(orderId, minecraftName, product.id, product.luckperms_group, product.price_cents, `admin-test:${orderId}`).run();
+  `).bind(orderId, minecraftName, product.id, product.luckperms_group, customerPrice, `admin-test:${orderId}`).run();
   await adminAudit(env, auth.session!.username, "create_test_purchase", "order", orderId, { minecraftName, productId, group: product.luckperms_group });
   return json({ order: { id: orderId, minecraft_name: minecraftName, product_id: product.id, luckperms_group: product.luckperms_group, payment_status: "PAID", fulfillment_status: "PENDING" } }, 201);
 }
@@ -1474,6 +1646,7 @@ export default {
           adminConfigured: Boolean(env.ADMIN_BOOTSTRAP_USERNAME && env.ADMIN_BOOTSTRAP_PASSWORD && env.ADMIN_SECRET),
           fulfillmentConfigured: Boolean(env.FULFILLMENT_TOKEN),
           payments: paymentMethodInfo(env),
+          pricing: priceCostSettings(env),
         }, dbOk ? 200 : 503);
       }
 
@@ -1487,6 +1660,10 @@ export default {
         return await createCheckout(request, env);
       }
 
+      if (url.pathname === "/api/paypal/client-token" && request.method === "GET") return paypalClientTokenResponse(env);
+      if (url.pathname === "/api/paypal/card/order" && request.method === "POST") return createPayPalCardOrder(request, env);
+      const paypalCardCaptureMatch = url.pathname.match(/^\/api\/paypal\/card\/orders\/([A-Za-z0-9_-]+)\/capture$/);
+      if (paypalCardCaptureMatch && request.method === "POST") return capturePayPalCardOrder(env, paypalCardCaptureMatch[1]);
       if (url.pathname === "/api/paypal/return" && request.method === "GET") return paypalReturn(request, env);
       if (url.pathname === "/api/paypal/webhook" && request.method === "POST") return paypalWebhook(request, env);
 

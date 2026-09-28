@@ -1,0 +1,23 @@
+Austria-MC Shop v4.5 validation
+
+Pricing examples at 3.4% + EUR 0.35:
+  EUR 5.00 base -> EUR 5.54 customer end price
+  EUR 10.00 base -> EUR 10.72 customer end price
+  EUR 15.00 base -> EUR 15.90 customer end price
+  EUR 20.00 base -> EUR 21.07 customer end price
+  EUR 30.00 base -> EUR 31.42 customer end price
+
+Checks:
+  [PASS] Default cost model 3.4% + 35 cents present
+  [PASS] Product API exposes computed customer price
+  [PASS] Checkout order stores computed customer price
+  [PASS] PayPal checkout charges stored order price
+  [PASS] PayPal amount verification checks stored order price
+  [PASS] Admin API returns customer end price
+  [PASS] Storefront labels amount as end price
+  [PASS] Admin displays base and customer end price
+  [PASS] No new migration added
+
+TypeScript syntax/transpile: PASS
+public/app.js syntax: PASS
+public/admin/admin.js syntax: PASS

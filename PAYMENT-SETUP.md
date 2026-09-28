@@ -1,44 +1,80 @@
-# Austria-MC Shop – direkte Zahlungen ohne Mollie
+# Austria-MC Shop v4.5 – PayPal + Karte + Endpreis-Kostenpuffer
 
-Diese Version entfernt Mollie aus dem Worker. Der Shop kann direkt mit **PayPal**, **Klarna** und **paysafecard** sprechen.
+Der öffentliche Checkout bietet zwei Zahlungsarten:
 
-## 0. Bestehende D1-Datenbank einmal migrieren
+- **PayPal** – Weiterleitung zum PayPal-Checkout.
+- **Kredit-/Debitkarte** – Kartenfelder werden direkt von PayPal gehostet; die Zahlung läuft ebenfalls über dein PayPal-Händlerkonto.
 
-Da deine Datenbank bereits existiert, zuerst in Cloudflare D1 → `austria-mc-shop` → Console den Inhalt von
+Der Shop speichert **keine Kartennummer, kein Ablaufdatum und keinen CVC**.
 
-`migrate-direct-payments.sql`
+## 1. Cloudflare-Secrets
 
-genau **einmal** ausführen.
-
-Die vorhandenen Produkte, Permissions und Bestellungen bleiben erhalten. Die alten `mollie_payment_id`-Felder werden nicht gelöscht, aber nicht mehr verwendet.
-
-## 1. D1-ID in wrangler.jsonc
-
-In `wrangler.jsonc` deine bestehende D1-ID wieder eintragen:
-
-```json
-"database_id": "DEINE-D1-ID"
-```
-
-## 2. Cloudflare Worker Secrets
-
-Im Worker `austria-mc-shop` unter **Settings → Variables and Secrets** die folgenden Werte als **Secrets** hinterlegen.
-
-### PayPal
+Im Worker `austria-mc-shop` unter **Settings → Variables and Secrets**:
 
 ```text
 PAYPAL_CLIENT_ID
 PAYPAL_CLIENT_SECRET
 PAYPAL_WEBHOOK_ID
+FULFILLMENT_TOKEN
 ```
 
-`PAYPAL_ENV` steht im `wrangler.jsonc` zunächst auf `sandbox`.
+Die Kartenzahlung verwendet dieselbe PayPal REST App.
 
-Für Live später:
+## 2. Sandbox / Live
+
+In `wrangler.jsonc` steht zunächst:
 
 ```text
-PAYPAL_ENV = live
+PAYPAL_ENV = sandbox
 ```
+
+Für echte Zahlungen auf `live` stellen und neu deployen.
+
+## 3. Kostenpuffer / Endpreis
+
+In v4.5 wird **kein zahlungsartabhängiger Zuschlag im Checkout** erhoben. Stattdessen wird der für den Kunden sichtbare Produkt-Endpreis bereits vorher aus dem Basis-/Zielpreis berechnet. PayPal und Karte haben denselben Endpreis.
+
+Konfiguration:
+
+```text
+PRICE_COST_PERCENT=3.4
+PRICE_COST_FIXED_CENTS=35
+```
+
+Die Berechnung ist eine Gross-up-Berechnung:
+
+```text
+Endpreis = aufrunden((Basispreis + Fixkosten) / (1 - Prozentkosten))
+```
+
+Beispiel mit den Standardwerten:
+
+```text
+Basis-/Zielpreis: 10,00 €
+Kostenmodell:     3,4 % + 0,35 €
+Kunden-Endpreis:  10,72 €
+```
+
+Wenn PayPal auf 10,72 € tatsächlich 3,4 % + 0,35 € berechnet, verbleiben ungefähr 10,00 €. Durch das Aufrunden können wenige Bruchteile eines Cents mehr verbleiben.
+
+**Wichtig:** Der tatsächliche PayPal-Abzug kann abweichen, z. B. bei internationalen Transaktionen oder individuellen Händlerkonditionen. Deshalb sind beide Werte konfigurierbar und werden nicht automatisch aus deinem PayPal-Konto ausgelesen.
+
+Ändere die Werte in Cloudflare bzw. `wrangler.jsonc`, wenn dein echter Tarif anders ist.
+
+## 4. Adminbereich
+
+Im Adminbereich heißt das Preisfeld jetzt **Basis-/Zielpreis in Cent**. Direkt darunter wird der daraus berechnete **Kunden-Endpreis** angezeigt.
+
+Beispiel:
+
+```text
+Basis-/Zielpreis: 1000 Cent
+Kunden-Endpreis:  10,72 €
+```
+
+Bestellungen speichern in `shop_orders.price_cents` den tatsächlich berechneten und an PayPal gesendeten Kunden-Endpreis.
+
+## 5. PayPal-Webhook
 
 Webhook-URL:
 
@@ -55,76 +91,20 @@ PAYMENT.CAPTURE.DENIED
 CHECKOUT.ORDER.VOIDED
 ```
 
-### Klarna
+## 6. Kartenzahlung
 
-```text
-KLARNA_USERNAME
-KLARNA_PASSWORD
-```
+Der Shop prüft über das PayPal Web SDK, ob **Advanced Cards** für dein PayPal-Händlerkonto verfügbar ist. Ist es nicht freigeschaltet, wird die Kartenoption automatisch deaktiviert.
 
-`KLARNA_ENV` steht zunächst auf `playground`.
+## 7. D1 / Migration
 
-Optional, falls Klarna für deinen Merchant einen anderen regionalen API-Endpunkt vorgibt:
+Für v4.5 ist **keine neue D1-Migration nötig**.
 
-```text
-KLARNA_API_BASE
-```
+Kartenbestellungen werden aus Kompatibilitätsgründen weiterhin mit `payment_method = paypal` gespeichert; `provider_name = paypal-card` kennzeichnet die Kartenabwicklung.
 
-Die Integration verwendet Klarna Payments + Hosted Payment Page und `PLACE_ORDER`. Nach erfolgreicher Bestellung wird der digitale Rang serverseitig erfasst und die Klarna-Order direkt gecaptured.
+## 8. Rangschutz
 
-### paysafecard
+PayPal und Karte führen vor dem Erstellen der Zahlung weiterhin die serverseitige Rangprüfung über AustriaShopBridge aus. Blockierte Downgrades und geschützte Staff-Ränge gelangen nicht bis zur Zahlung.
 
-```text
-PAYSAFECARD_API_KEY
-```
+## 9. Rechtlicher Hinweis für Österreich / B2C
 
-`PAYSAFECARD_ENV` steht zunächst auf `test`.
-
-Optional, wenn Paysafe dir einen abweichenden Merchant-Endpunkt gibt:
-
-```text
-PAYSAFECARD_API_BASE
-```
-
-Die Integration macht: Payment anlegen → Kunde zu paysafecard → Status serverseitig prüfen → AUTHORIZED Payment capturen → erst danach Bestellung auf `PAID` setzen.
-
-**Wichtig:** paysafecard verlangt bei neuen Merchant-Integrationen Test/UAT und kann für Produktion IP-Freigaben verlangen. Kläre mit Paysafe, ob dein Cloudflare-Workers-Setup für die Produktionsfreigabe akzeptiert wird.
-
-## 3. Fulfillment Secret
-
-Für das spätere Bungee/LuckPerms-Plugin:
-
-```text
-FULFILLMENT_TOKEN
-```
-
-als langes zufälliges Secret setzen.
-
-## 4. Deployment
-
-Cloudflare Build-Einstellungen:
-
-```text
-Root directory: leer
-Build command: leer
-Deploy command: npx wrangler deploy --config ./wrangler.jsonc
-Production branch: main
-```
-
-## 5. Automatische Anzeige der Zahlungsmethoden
-
-Der Browser ruft `/api/payment-methods` auf.
-
-Eine Zahlungsart ist nur auswählbar, wenn die zugehörigen Secrets gesetzt sind. Du kannst deshalb zuerst nur PayPal konfigurieren; Klarna und paysafecard erscheinen bis dahin deaktiviert.
-
-## 6. Sicherheitslogik
-
-Der Browser bestimmt weder Preis noch LuckPerms-Gruppe. Beides kommt aus D1.
-
-Ein Auftrag wird erst `PAID`, wenn der Worker die Zahlung beim jeweiligen Anbieter serverseitig geprüft bzw. gecaptured hat. Erst dann taucht die Bestellung unter
-
-```text
-GET /api/fulfillment/pending
-```
-
-für das spätere Bungee-Plugin auf.
+Diese Version verwendet absichtlich **denselben, vorab angezeigten Endpreis** für PayPal und Karte und erhebt keinen separaten Zahlungsart-Zuschlag. Für Webshops mit Verbrauchern gelten in Österreich/EU strenge Regeln zu Entgelten für Zahlungsmittel. Prüfe deine konkrete Preisgestaltung bei Bedarf mit WKO bzw. Rechtsberatung.

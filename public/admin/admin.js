@@ -207,7 +207,7 @@ async function loadProducts() {
   const data = await api("/api/admin/products");
   products = data.products || [];
   renderProducts();
-  $("#test-product").innerHTML = products.filter(p => p.active).map(p => `<option value="${esc(p.id)}">${esc(p.display_name)} – ${euro(p.price_cents)}</option>`).join("");
+  $("#test-product").innerHTML = products.filter(p => p.active).map(p => `<option value="${esc(p.id)}">${esc(p.display_name)} – Endpreis ${euro(p.customer_price_cents ?? p.price_cents)}</option>`).join("");
 }
 $("#refresh-products").addEventListener("click", () => loadProducts().catch(err => toast(err.message, true)));
 
@@ -218,7 +218,7 @@ function renderProducts() {
       <div class="product-fields">
         <label>Name<input data-field="display_name" value="${esc(p.display_name)}" /></label>
         <label>LuckPerms-Gruppe<input data-field="luckperms_group" value="${esc(p.luckperms_group)}" /></label>
-        <label>Preis in Cent<input data-field="price_cents" type="number" min="0" value="${Number(p.price_cents)}" /></label>
+        <label>Basis-/Zielpreis in Cent<input data-field="price_cents" type="number" min="0" value="${Number(p.price_cents)}" /><span class="muted">Kunden-Endpreis: ${euro(p.customer_price_cents ?? p.price_cents)}</span></label>
         <label>Akzentfarbe<input data-field="accent_hex" type="color" value="${esc(p.accent_hex)}" /></label>
         <label class="full">Prefix<input data-field="prefix_legacy" value="${esc(p.prefix_legacy)}" /></label>
         <label class="full">Beschreibung<textarea data-field="description">${esc(p.description)}</textarea></label>

@@ -116,8 +116,8 @@
         </div>
         <aside class="payment-panel">
           <span>Sichere Zahlungsarten</span>
-          <div class="payment-logos"><strong class="paypal">PayPal</strong><strong class="paysafe">paysafecard</strong><strong class="klarna">Klarna.</strong></div>
-          <ul><li>Keine Zahlungsdaten auf dem Minecraft-Server</li><li>Bestellstatus direkt im Shop</li><li>Serverseitige Rangvergabe</li></ul>
+          <div class="payment-logos"><strong class="paypal">PayPal</strong><strong class="cardpay">Visa / Mastercard</strong></div>
+          <ul><li>PayPal oder Kredit-/Debitkarte</li><li>Der angezeigte Rangpreis ist bereits der Endpreis</li><li>Kartendaten werden direkt von PayPal verarbeitet</li><li>Serverseitige Rangvergabe</li></ul>
           <button class="btn btn-red" type="button" data-copy="austria-mc.net">Server-IP kopieren</button>
         </aside>
       </div>
@@ -147,11 +147,21 @@
       </div>
       <fieldset><legend>Zahlungsart</legend><div class="method-grid">
         <label><input type="radio" name="paymentMethod" value="paypal" checked /><span>PayPal</span></label>
-        <label><input type="radio" name="paymentMethod" value="paysafecard" /><span>paysafecard</span></label>
-        <label><input type="radio" name="paymentMethod" value="klarna" /><span>Klarna.</span></label>
-      </div></fieldset>
+        <label class="disabled"><input type="radio" name="paymentMethod" value="card" disabled /><span>Kredit-/Debitkarte (wird geprüft)</span></label>
+      </div>
+      <div id="card-fields-wrap" class="card-fields-wrap" hidden>
+        <div class="card-fields-head"><strong>Kartenzahlung über PayPal</strong><span>Visa · Mastercard · je nach PayPal-Freischaltung weitere Karten</span></div>
+        <label class="card-field-label">Kartennummer<div class="paypal-card-field" id="paypal-card-fields-number"></div></label>
+        <div class="card-fields-row">
+          <label class="card-field-label">Gültig bis<div class="paypal-card-field" id="paypal-card-fields-expiry"></div></label>
+          <label class="card-field-label">CVC<div class="paypal-card-field" id="paypal-card-fields-cvv"></div></label>
+        </div>
+        <p class="card-status" id="card-status">Die Kartenfelder werden bei Auswahl sicher von PayPal geladen.</p>
+      </div>
+      <p class="fee-note">Der angezeigte Endpreis enthält bereits den konfigurierten Kostenpuffer für die Zahlungsabwicklung. Für PayPal und Karte gilt derselbe Endpreis; im Checkout kommt nichts mehr dazu.</p>
+      </fieldset>
       <label class="terms"><input type="checkbox" required /><span>Ich bestätige Minecraft-Name und Produkt und akzeptiere die Shop-Bedingungen.</span></label>
-      <button class="btn btn-red submit" type="submit">Sicher zur Zahlung</button><p class="form-status" id="form-status"></p>
+      <button class="btn btn-red submit" type="submit">Weiter zu PayPal</button><p class="form-status" id="form-status"></p>
     </form>
   </dialog>
 

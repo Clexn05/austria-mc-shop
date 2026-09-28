@@ -10,3 +10,8 @@ PAYPAL_WEBHOOK_ID=
 KLARNA_USERNAME=
 KLARNA_PASSWORD=
 PAYSAFECARD_API_KEY=
+
+# Globaler Kostenpuffer im angezeigten Endpreis (gleich für PayPal und Karte).
+# Standard entspricht PayPal AT Inland: 3,4 % + 0,35 EUR (Stand 15.07.2026).
+PRICE_COST_PERCENT=3.4
+PRICE_COST_FIXED_CENTS=35
