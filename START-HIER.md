@@ -106,3 +106,15 @@ Dort sollte `database: true` stehen. Für den Admin sollte `adminConfigured: tru
 - vier D1-gesteuerte Ränge
 - responsive Desktop/Mobil
 - Adminbereich bleibt vollständig enthalten
+
+
+## Admin-Fix v4.1
+
+Die Admin-Oberfläche trennt jetzt Login-/Sessionfehler von Fehlern beim Laden der Übersichts- oder Produktdaten.
+Wenn der Login erfolgreich ist, bleibt die Admin-Oberfläche sichtbar und zeigt eventuelle Datenbank-/API-Fehler als Toast statt still zum Login zurückzuspringen.
+
+Nach Upload/Commit lokal deployen:
+
+```powershell
+npx.cmd wrangler deploy --config .\wrangler.jsonc
+```

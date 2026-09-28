@@ -45,21 +45,34 @@ async function api(path, options = {}) {
 
 function showLogin() {
   loginView.hidden = false;
+  loginView.style.display = "";
   adminView.hidden = true;
+  adminView.style.display = "none";
   currentUser = null;
 }
 function showAdmin(user) {
   currentUser = user;
   loginView.hidden = true;
+  loginView.style.display = "none";
   adminView.hidden = false;
-  $("#admin-username").textContent = user.username;
+  adminView.style.display = "grid";
+  $("#admin-username").textContent = user?.username || "admin";
+}
+
+async function loadInitialAdminData() {
+  const results = await Promise.allSettled([loadOverview(), loadProducts()]);
+  const failed = results.find(r => r.status === "rejected");
+  if (failed) {
+    const message = failed.reason?.message || String(failed.reason || "Admin-Daten konnten nicht geladen werden.");
+    toast(`Login erfolgreich, aber Admin-Daten konnten nicht vollständig geladen werden: ${message}`, true);
+  }
 }
 
 async function bootstrap() {
   try {
     const session = await api("/api/admin/session");
     showAdmin(session);
-    await Promise.all([loadOverview(), loadProducts()]);
+    await loadInitialAdminData();
   } catch {
     showLogin();
   }
@@ -72,14 +85,19 @@ $("#login-form").addEventListener("submit", async (e) => {
   const submit = e.currentTarget.querySelector("button[type=submit]");
   submit.disabled = true;
   try {
-    const data = await api("/api/admin/login", {
+    await api("/api/admin/login", {
       method: "POST",
       body: JSON.stringify({ username: $("#login-username").value.trim(), password: $("#login-password").value })
     });
-    showAdmin(data);
+
+    // Direkt danach die Session erneut lesen. So sehen wir sofort, ob das
+    // HttpOnly-Cookie im Browser wirklich gespeichert wurde.
+    const session = await api("/api/admin/session");
+    showAdmin(session);
     $("#login-password").value = "";
-    await Promise.all([loadOverview(), loadProducts()]);
+    await loadInitialAdminData();
   } catch (err) {
+    showLogin();
     error.textContent = err.message || String(err);
   } finally {
     submit.disabled = false;
