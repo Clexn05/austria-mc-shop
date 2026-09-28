@@ -118,3 +118,8 @@ Nach Upload/Commit lokal deployen:
 ```powershell
 npx.cmd wrangler deploy --config .\wrangler.jsonc
 ```
+
+
+## Neu in v4.2
+
+Im Adminbereich können jetzt alle Bestellungen gelöscht werden. Testkäufe haben weiterhin einen eigenen Lösch-Button; bei echten Bestellungen erscheint eine doppelte Sicherheitsabfrage. Vor dem Löschen wird ein Audit-Eintrag mit den wichtigsten Bestelldaten gespeichert.

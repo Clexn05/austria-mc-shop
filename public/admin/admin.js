@@ -171,7 +171,7 @@ async function loadOrders() {
       <td>${statusBadge(o.payment_status)}</td><td>${statusBadge(o.fulfillment_status)}${o.fulfillment_message ? `<div class="muted">${esc(o.fulfillment_message)}</div>` : ''}</td>
       <td><div class="filters">
         ${canRetry ? `<button class="btn secondary small" data-order-retry="${esc(o.id)}">Erneut freischalten</button>` : ''}
-        ${isTest ? `<button class="btn danger small" data-order-delete="${esc(o.id)}">Test löschen</button>` : ''}
+        <button class="btn danger small" data-order-delete="${esc(o.id)}" data-order-test="${isTest ? '1' : '0'}">${isTest ? 'Test löschen' : 'Bestellung löschen'}</button>
       </div></td>
     </tr>`;
   }).join("");
@@ -190,9 +190,14 @@ $("#orders-body").addEventListener("click", async e => {
       await loadOrders();
     }
     if (del) {
-      if (!confirm("Diesen Testkauf wirklich löschen?")) return;
+      const isTest = del.dataset.orderTest === "1";
+      const message = isTest
+        ? "Diesen Testkauf wirklich löschen?"
+        : "Diese Bestellung wirklich endgültig löschen?\n\nAchtung: Zahlungs- und Bestellhistorie dieser Bestellung wird aus der Shop-Datenbank entfernt.";
+      if (!confirm(message)) return;
+      if (!isTest && !confirm("Wirklich löschen? Dieser Schritt kann nicht rückgängig gemacht werden.")) return;
       await api(`/api/admin/orders/${del.dataset.orderDelete}`, { method: "DELETE" });
-      toast("Testkauf gelöscht.");
+      toast(isTest ? "Testkauf gelöscht." : "Bestellung gelöscht.");
       await loadOrders();
     }
   } catch (err) { toast(err.message, true); }

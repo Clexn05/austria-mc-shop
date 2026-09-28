@@ -1173,11 +1173,35 @@ async function adminRetryOrder(request: Request, env: Env, orderId: string) {
 
 async function adminDeleteOrder(request: Request, env: Env, orderId: string) {
   const auth = await requireAdmin(request, env); if (auth.error) return auth.error;
-  const order = await env.DB.prepare(`SELECT provider_name FROM shop_orders WHERE id=?`).bind(orderId).first<any>();
+  const order = await env.DB.prepare(`
+    SELECT id, minecraft_name, product_id, luckperms_group, price_cents, currency,
+           payment_status, fulfillment_status, provider_name, provider_payment_id, created_at
+    FROM shop_orders WHERE id=? LIMIT 1
+  `).bind(orderId).first<any>();
   if (!order) return json({ error: "Bestellung nicht gefunden." }, 404);
-  if (order.provider_name !== "admin-test") return json({ error: "Aus Sicherheitsgründen können hier nur Testkäufe gelöscht werden." }, 403);
+
+  const isTest = order.provider_name === "admin-test";
+  await adminAudit(
+    env,
+    auth.session!.username,
+    isTest ? "delete_test_order" : "delete_order",
+    "order",
+    orderId,
+    {
+      minecraft_name: order.minecraft_name,
+      product_id: order.product_id,
+      luckperms_group: order.luckperms_group,
+      price_cents: order.price_cents,
+      currency: order.currency,
+      payment_status: order.payment_status,
+      fulfillment_status: order.fulfillment_status,
+      provider_name: order.provider_name,
+      provider_payment_id: order.provider_payment_id,
+      created_at: order.created_at
+    }
+  );
+
   await env.DB.prepare(`DELETE FROM shop_orders WHERE id=?`).bind(orderId).run();
-  await adminAudit(env, auth.session!.username, "delete_test_order", "order", orderId);
   return json({ ok: true });
 }
 
