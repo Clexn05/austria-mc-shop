@@ -89,7 +89,7 @@ checkoutForm.addEventListener("submit", async (event) => {
   const status = document.querySelector("#form-status");
   const submit = checkoutForm.querySelector(".submit");
   submit.disabled = true;
-  status.textContent = "Zahlung wird vorbereitet …";
+  status.textContent = "Rang wird geprüft und Zahlung vorbereitet …";
 
   const fd = new FormData(checkoutForm);
   const payload = Object.fromEntries(fd.entries());

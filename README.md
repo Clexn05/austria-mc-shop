@@ -1,4 +1,4 @@
-# Austria-MC Shop v4
+# Austria-MC Shop v4.3
 
 Cloudflare-Workers-Shop für Austria-MC mit D1, Adminbereich und automatischer Rang-Freischaltung über AustriaShopBridge.
 
@@ -16,6 +16,8 @@ Cloudflare-Workers-Shop für Austria-MC mit D1, Adminbereich und automatischer R
 - D1-Tabellen im Admin lesen
 - Admin-Zugang ändern
 - Fulfillment-API für AustriaShopBridge
+- serverseitige LuckPerms-Rangprüfung vor Checkout und Testkauf
+- Schutz vor gleichem Rang, Downgrades und konfigurierten Staff-Rängen
 - `/api/health` zur Diagnose
 
 Die konkrete Einrichtung steht in **START-HIER.md**.

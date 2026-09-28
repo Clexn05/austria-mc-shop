@@ -90,6 +90,89 @@ function authFulfillment(request: Request, env: Env) {
   return request.headers.get("authorization") === `Bearer ${env.FULFILLMENT_TOKEN}`;
 }
 
+type RankDecision = "ALLOWED" | "BLOCKED" | "UNAVAILABLE";
+
+type RankEligibility = {
+  decision: RankDecision;
+  currentGroup: string | null;
+  message: string;
+};
+
+let rankCheckSchemaReady = false;
+
+async function ensureRankCheckSchema(env: Env) {
+  if (rankCheckSchemaReady) return;
+  await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS rank_checks (
+      id TEXT PRIMARY KEY,
+      minecraft_name TEXT NOT NULL,
+      target_group TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'PENDING'
+        CHECK(status IN ('PENDING','ALLOWED','BLOCKED','FAILED')),
+      current_group TEXT,
+      message TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`),
+    env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_rank_checks_status_created
+      ON rank_checks(status, created_at)`),
+  ]);
+  await env.DB.prepare(`DELETE FROM rank_checks WHERE created_at < datetime('now', '-7 days')`).run();
+  rankCheckSchemaReady = true;
+}
+
+function sleep(ms: number) {
+  return new Promise<void>(resolve => setTimeout(resolve, ms));
+}
+
+async function requestRankEligibility(env: Env, minecraftName: string, targetGroup: string): Promise<RankEligibility> {
+  await ensureRankCheckSchema(env);
+  const id = crypto.randomUUID();
+  await env.DB.prepare(`
+    INSERT INTO rank_checks (id, minecraft_name, target_group, status)
+    VALUES (?, ?, ?, 'PENDING')
+  `).bind(id, minecraftName, targetGroup).run();
+
+  const deadline = Date.now() + 10000;
+  while (Date.now() < deadline) {
+    await sleep(500);
+    const row = await env.DB.prepare(`
+      SELECT status, current_group, message FROM rank_checks WHERE id = ? LIMIT 1
+    `).bind(id).first<any>();
+    if (!row || row.status === "PENDING") continue;
+    if (row.status === "ALLOWED") {
+      return {
+        decision: "ALLOWED",
+        currentGroup: row.current_group || null,
+        message: row.message || "Rang-Upgrade ist erlaubt.",
+      };
+    }
+    if (row.status === "BLOCKED") {
+      return {
+        decision: "BLOCKED",
+        currentGroup: row.current_group || null,
+        message: row.message || "Dieser Rang kann mit deinem aktuellen Rang nicht gekauft werden.",
+      };
+    }
+    return {
+      decision: "UNAVAILABLE",
+      currentGroup: row.current_group || null,
+      message: row.message || "Die Rangprüfung konnte nicht durchgeführt werden.",
+    };
+  }
+
+  await env.DB.prepare(`
+    UPDATE rank_checks
+    SET status='FAILED', message='AustriaShopBridge hat nicht rechtzeitig geantwortet.', updated_at=CURRENT_TIMESTAMP
+    WHERE id=? AND status='PENDING'
+  `).bind(id).run();
+  return {
+    decision: "UNAVAILABLE",
+    currentGroup: null,
+    message: "Die Rangprüfung ist gerade nicht erreichbar. Bitte versuche es gleich noch einmal.",
+  };
+}
+
 function methodEnabled(env: Env, method: PaymentMethod) {
   if (method === "paypal") return Boolean(env.PAYPAL_CLIENT_ID && env.PAYPAL_CLIENT_SECRET);
   if (method === "klarna") return Boolean(env.KLARNA_USERNAME && env.KLARNA_PASSWORD);
@@ -678,6 +761,18 @@ async function createCheckout(request: Request, env: Env) {
   ).bind(input.productId).first<any>();
   if (!product) return json({ error: "Produkt nicht gefunden." }, 404);
 
+  const eligibility = await requestRankEligibility(env, minecraftName, product.luckperms_group);
+  if (eligibility.decision === "BLOCKED") {
+    return json({
+      error: eligibility.message,
+      currentGroup: eligibility.currentGroup,
+      targetGroup: product.luckperms_group,
+    }, 409);
+  }
+  if (eligibility.decision === "UNAVAILABLE") {
+    return json({ error: eligibility.message }, 503);
+  }
+
   const orderId = crypto.randomUUID();
   await env.DB.prepare(
     `INSERT INTO shop_orders
@@ -753,6 +848,36 @@ async function completeFulfillment(request: Request, orderId: string, env: Env) 
      WHERE id = ? AND payment_status = 'PAID'`
   ).bind(success ? "FULFILLED" : "FAILED", message || null, success ? 1 : 0, orderId).run();
   return json({ ok: true });
+}
+
+async function pendingRankChecks(request: Request, env: Env) {
+  if (!authFulfillment(request, env)) return json({ error: "unauthorized" }, 401);
+  await ensureRankCheckSchema(env);
+  const result = await env.DB.prepare(`
+    SELECT id, minecraft_name, target_group, created_at
+    FROM rank_checks
+    WHERE status='PENDING' AND created_at >= datetime('now', '-2 minutes')
+    ORDER BY created_at ASC LIMIT 100
+  `).all<any>();
+  return json({ checks: result.results || [] });
+}
+
+async function completeRankCheck(request: Request, checkId: string, env: Env) {
+  if (!authFulfillment(request, env)) return json({ error: "unauthorized" }, 401);
+  await ensureRankCheckSchema(env);
+  const body = (await request.json().catch(() => ({}))) as any;
+  const status = String(body.status || "").toUpperCase();
+  if (!["ALLOWED", "BLOCKED", "FAILED"].includes(status)) {
+    return json({ error: "invalid status" }, 400);
+  }
+  const currentGroup = String(body.currentGroup || "").trim().slice(0, 64) || null;
+  const message = String(body.message || "").trim().slice(0, 255) || null;
+  const result = await env.DB.prepare(`
+    UPDATE rank_checks
+    SET status=?, current_group=?, message=?, updated_at=CURRENT_TIMESTAMP
+    WHERE id=? AND status='PENDING'
+  `).bind(status, currentGroup, message, checkId).run();
+  return json({ ok: true, accepted: Boolean(result.meta.changes) });
 }
 
 /* ----------------------------- Admin ------------------------------ */
@@ -1213,6 +1338,17 @@ async function adminTestPurchase(request: Request, env: Env) {
   if (!isMinecraftName(minecraftName)) return json({ error: "Ungültiger Minecraft-Name." }, 400);
   const product = await env.DB.prepare(`SELECT id, display_name, luckperms_group, price_cents FROM products WHERE id=? AND active=1 LIMIT 1`).bind(productId).first<any>();
   if (!product) return json({ error: "Rang nicht gefunden oder deaktiviert." }, 404);
+  const eligibility = await requestRankEligibility(env, minecraftName, product.luckperms_group);
+  if (eligibility.decision === "BLOCKED") {
+    return json({
+      error: eligibility.message,
+      currentGroup: eligibility.currentGroup,
+      targetGroup: product.luckperms_group,
+    }, 409);
+  }
+  if (eligibility.decision === "UNAVAILABLE") {
+    return json({ error: eligibility.message }, 503);
+  }
   const orderId = crypto.randomUUID();
   await env.DB.prepare(`
     INSERT INTO shop_orders
@@ -1228,13 +1364,13 @@ async function adminTestPurchase(request: Request, env: Env) {
 async function adminDatabaseTables(request: Request, env: Env) {
   const auth = await requireAdmin(request, env); if (auth.error) return auth.error;
   const rows = await env.DB.prepare(`SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`).all<any>();
-  const allowed = new Set(["products","product_permissions","shop_orders","admin_audit","admin_users","admin_login_guard"]);
+  const allowed = new Set(["products","product_permissions","shop_orders","rank_checks","admin_audit","admin_users","admin_login_guard"]);
   return json({ tables: (rows.results || []).map((r: any) => r.name).filter((name: string) => allowed.has(name)) });
 }
 
 async function adminDatabaseTable(request: Request, env: Env, table: string) {
   const auth = await requireAdmin(request, env); if (auth.error) return auth.error;
-  const allowed = new Set(["products","product_permissions","shop_orders","admin_audit","admin_users","admin_login_guard"]);
+  const allowed = new Set(["products","product_permissions","shop_orders","rank_checks","admin_audit","admin_users","admin_login_guard"]);
   if (!allowed.has(table)) return json({ error: "Tabelle nicht freigegeben." }, 404);
   const url = new URL(request.url);
   const limit = Math.min(500, Math.max(1, Number(url.searchParams.get("limit") || 100)));
@@ -1369,6 +1505,14 @@ export default {
       const completeMatch = url.pathname.match(/^\/api\/fulfillment\/([0-9a-f-]{36})\/complete$/i);
       if (completeMatch && request.method === "POST") {
         return completeFulfillment(request, completeMatch[1], env);
+      }
+
+      if (url.pathname === "/api/eligibility/pending" && request.method === "GET") {
+        return pendingRankChecks(request, env);
+      }
+      const eligibilityMatch = url.pathname.match(/^\/api\/eligibility\/([0-9a-f-]{36})\/complete$/i);
+      if (eligibilityMatch && request.method === "POST") {
+        return completeRankCheck(request, eligibilityMatch[1], env);
       }
 
       const asset = await env.ASSETS.fetch(request);

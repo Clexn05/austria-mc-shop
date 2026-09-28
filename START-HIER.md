@@ -11,6 +11,7 @@ Den **Inhalt** dieses Ordners direkt in den Root deines GitHub-Repositories lade
 - `schema.sql`
 - `migrate-admin.sql`
 - `migrate-direct-payments.sql`
+- `migrate-rank-checks.sql`
 - `package.json`
 - `tsconfig.json`
 - `wrangler.jsonc`
@@ -55,6 +56,12 @@ npx.cmd wrangler d1 execute austria-mc-shop --remote --file=.\schema.sql
 ```
 
 Für deine bestehende Datenbank sind die Admin-Tabellen bereits über `migrate-admin.sql` vorgesehen. `migrate-direct-payments.sql` nur ausführen, wenn die `provider_*`-Spalten noch fehlen.
+
+Die neue Rangprüfung in v4.3 legt ihre Tabelle beim ersten Aufruf automatisch an. Optional kannst du sie vorher manuell anlegen:
+
+```powershell
+npx.cmd wrangler d1 execute austria-mc-shop --remote --file=.\migrate-rank-checks.sql
+```
 
 ## 4. Secrets
 
@@ -123,3 +130,21 @@ npx.cmd wrangler deploy --config .\wrangler.jsonc
 ## Neu in v4.2
 
 Im Adminbereich können jetzt alle Bestellungen gelöscht werden. Testkäufe haben weiterhin einen eigenen Lösch-Button; bei echten Bestellungen erscheint eine doppelte Sicherheitsabfrage. Vor dem Löschen wird ein Audit-Eintrag mit den wichtigsten Bestelldaten gespeichert.
+
+
+## Neu in v4.3 – Rangschutz
+
+Der Shop fragt **vor dem Erstellen einer Zahlung** den aktuellen LuckPerms-Rang beim `AustriaShopBridge` ab. Dadurch werden derselbe Rang und Downgrades bereits vor dem Zahlungsanbieter blockiert. Standardmäßig gilt die Reihenfolge:
+
+```text
+spüla+ < vip < vip+ < builder
+```
+
+Zusätzlich sind die Staff-Gruppen `mod`, `admin` und `inhaber` geschützt. Weitere Staff-Gruppen können in `plugins/AustriaShopBridge/config.properties` über `protected.groups=` ergänzt werden.
+
+Wichtig ist die Update-Reihenfolge:
+
+1. **Zuerst** `AustriaShopBridge-v1.1.0.jar` auf dem Proxy ersetzen und den Proxy neu starten. Die bestehende `plugins/AustriaShopBridge/config.properties` behalten.
+2. **Danach** diese Shop-v4.3-Dateien ins GitHub-Repo kopieren/committen und deployen.
+
+So bleibt der alte Shop während des Plugin-Updates weiter nutzbar. Sobald v4.3 online ist, ist die serverseitige Rangprüfung aktiv. Wenn der Proxy bzw. das Plugin nicht erreichbar ist, wird der Checkout absichtlich blockiert, statt eine möglicherweise falsche Zahlung zu starten.

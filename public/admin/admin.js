@@ -297,7 +297,7 @@ $("#test-purchase-form").addEventListener("submit", async e => {
   e.preventDefault();
   const out = $("#test-result");
   out.className = "form-message";
-  out.textContent = "Testauftrag wird angelegt …";
+  out.textContent = "Rang wird geprüft und Testauftrag angelegt …";
   const payload = Object.fromEntries(new FormData(e.currentTarget).entries());
   try {
     const data = await api("/api/admin/test-purchase", { method: "POST", body: JSON.stringify(payload) });
